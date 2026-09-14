@@ -1,0 +1,4 @@
+opencv-contrib-python-headless>=4.10
+Pillow>=11
+qrcode>=8
+reportlab>=4

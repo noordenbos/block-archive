@@ -1,0 +1,13 @@
+const assert=require('node:assert/strict');
+const G=require('../geometry');
+const box=[[0,0],[2,0],[2,2],[0,2]];
+assert.equal(G.area(box),4);
+assert.equal(G.distance(box,[[3,0],[4,0],[4,2],[3,2]]),1);
+assert.equal(G.distance(box,[[1,1],[3,1],[3,3],[1,3]]),0);
+assert.equal(G.distance(box,[[.5,.5],[1,.5],[1,1],[.5,1]]),0);
+assert.equal(G.distance(box,[[2,0],[4,0],[4,2],[2,2]]),0);
+assert.equal(G.simple([[0,0],[2,2],[0,2],[2,0]]),false);
+assert.equal(G.simple(box),true);
+const p=G.transform([[2,1]],10,20,90,true)[0];
+assert.ok(Math.abs(p[0]-9)<1e-10&&Math.abs(p[1]-18)<1e-10);
+console.log('8 geometry checks passed: scale area, clearance, overlap, containment, touching edges, polygon validity, mirror/rotation.');

@@ -1,0 +1,12 @@
+const vm=require('node:vm'),fs=require('node:fs'),assert=require('node:assert/strict'),Geo=require('../geometry');
+const region={id:'r',points:[[0,0],[20,0],[20,10],[0,10]]},block={mmPerPx:.1,regions:[region],scores:[]};
+const placements=[{regionId:'r',x:5,y:6,angle:37,mirror:false,confirmed:true},{regionId:'r',x:2,y:3,angle:125,mirror:true,confirmed:true}];
+const ctx={Geo,state:{slides:[{placements}]},regionInfo:()=>({b:block,r:region}),updateValidation(){},renderSlides(){},renderHandoff(){},download(){},slideSVG:()=>'<svg></svg>',scoringEdges:b=>b.regions.flatMap(r=>r.points.map((p,i)=>[p,r.points[(i+1)%r.points.length]]))};
+vm.createContext(ctx);vm.runInContext(fs.readFileSync('placement-workflow.js','utf8'),ctx);
+const position=p=>{const pts=region.points,c=pts.reduce((a,v)=>[a[0]+v[0]/pts.length,a[1]+v[1]/pts.length],[0,0]);return Geo.transform(pts.map(v=>[(v[0]-c[0])*.1,(v[1]-c[1])*.1]),p.x,p.y,p.angle,p.mirror)};
+const before=placements.map(position);
+ctx.applyScoringShape('r',[[0,0],[15,0],[20,10],[0,10]]);
+placements.forEach((p,j)=>{const after=position(p);for(const i of [0,2,3])assert.ok(Math.hypot(after[i][0]-before[j][i][0],after[i][1]-before[j][i][1])<1e-10);assert.equal(p.confirmed,false)});
+assert.equal(block.scores.length,4);assert.equal(block.scores[0][1][0],15);
+assert.throws(()=>ctx.applyScoringShape('r',[[0,0],[20,10],[20,0],[0,10]]));
+console.log('PASS: shared scoring edits preserve unchanged corners under rotation/reflection, update scores, invalidate confirmation, reject crossing edges');

@@ -1,0 +1,26 @@
+.DS_Store
+__pycache__/
+dummies/*.jpg
+dummies/*.jpeg
+dummies/*.png
+dummies/*.webp
+*.pyc
+artefacts/examples/*.jpg
+
+# Local data and private release preparation are never publication inputs.
+.local/
+.release/
+.venv/
+WORK_HANDOFF.md
+HANDOFF_ASTRA.md
+blokids/
+dummies/
+*.csv
+*.json
+*.jpg
+*.jpeg
+*.webp
+*.heic
+*.zip
+*.log
+node_modules/
