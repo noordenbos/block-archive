@@ -3,7 +3,7 @@ const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels = {archived:'In archive',checked_out:'Checked out',awaiting_archive:'To rearchive'};
 const photoLabels = {baseline:'Initial archive',post_cut:'After cutting',reference:'Reference'};
-const eventLabels = {registered:'Block registered',checkout:'Checked out for cutting',complete_cut:'Cutting completed',rearchive:'Returned to archive',photo_added:'Photo recorded',external_link_saved:'Data reference saved',details_updated:'Description updated'};
+const eventLabels = {import_confirmed:'Historical photo linked',registered:'Block registered',checkout:'Checked out for cutting',complete_cut:'Cutting completed',rearchive:'Returned to archive',photo_added:'Photo recorded',external_link_saved:'Data reference saved',details_updated:'Description updated'};
 let selected=null, shownPhoto=null, filter='', offset=0, nextOffset=null, queryGeneration=0, selectionGeneration=0, busy=false;
 const date = value => new Date(value).toLocaleString([], {year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
 function message(text, error=false) { const box=$('#message'); box.hidden=false;box.classList.toggle('error',error);box.textContent=text; }
@@ -115,3 +115,5 @@ $('#previous').onclick=()=>{offset=Math.max(0,offset-30);loadList();};$('#next')
 async function openLinkedBlock(){const code=new URLSearchParams(location.search).get('block');if(!code)return;try{const record=await api('/api/v1/blocks/by-code?block_code='+encodeURIComponent(code));await selectBlock(record.id,false);}catch(error){message(error.message,true);}}
 window.addEventListener('popstate',openLinkedBlock);
 loadList();openLinkedBlock();
+
+api("/api/v1/imports?limit=1").then(data=>{$("#photoInbox").textContent=data.pending?`Photo inbox (${data.pending})`:"Photo inbox";}).catch(()=>{});

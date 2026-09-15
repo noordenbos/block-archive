@@ -66,6 +66,37 @@ class ExternalLink(Versioned):
     url: HttpUrl | None = None
 
 
+class ConfirmImport(Versioned):
+    block_id: UUID
+    expected_block_version: int = Field(ge=1)
+
+
+class ImportRecord(BaseModel):
+    id: UUID
+    filename: str
+    sha256: str
+    imported_at: str
+    actor: str
+    label_text: str
+    barcodes: list[str]
+    content_type: str
+    width: int
+    height: int
+    block_id: UUID | None
+    version: int
+    url: str
+    thumbnail_url: str
+
+
+class ImportPage(BaseModel):
+    items: list[ImportRecord]
+    total: int
+    pending: int
+    offset: int
+    limit: int
+    next_offset: int | None
+
+
 class ErrorResponse(BaseModel):
     detail: str
 
@@ -222,13 +253,44 @@ def create_app(data_dir=None, allowed_origins=None, api_token=None):
 
     @app.get('/static/{name}', include_in_schema=False)
     def asset(name: str):
-        if name not in ('app.js', 'style.css', 'api.html'):
+        if name not in ('app.js', 'style.css', 'api.html', 'imports.html', 'imports.js'):
             raise HTTPException(404, 'Not found.')
         return FileResponse(ROOT / 'static' / name)
 
     @app.get('/api/v1/health', tags=['Service'])
     def health():
         return {'status': 'ok', 'version': '0.1.0'}
+
+    @app.get('/imports', include_in_schema=False)
+    def imports_page():
+        response = FileResponse(ROOT / 'static/imports.html')
+        response.set_cookie('block_archive_session', session, httponly=True, samesite='strict', path='/')
+        return response
+
+    @app.get('/api/v1/imports', dependencies=protected, tags=['Imports'], response_model=ImportPage)
+    def imports(query: str = Query('', max_length=120), status: Literal['pending', 'linked', 'all'] = 'pending',
+                limit: int = Query(30, ge=1, le=100), offset: int = Query(0, ge=0)):
+        return store.inbox_list(query, status, limit, offset)
+
+    @app.get('/api/v1/imports/{image_id}', dependencies=protected, tags=['Imports'], response_model=ImportRecord)
+    def imported_image(image_id: UUID):
+        return store.inbox_detail(str(image_id))
+
+    @app.get('/api/v1/imports/{image_id}/image', dependencies=protected, tags=['Imports'], response_class=FileResponse,
+             responses={200: {'content': {mime: {'schema': {'type': 'string', 'format': 'binary'}} for mime in ('image/jpeg', 'image/png', 'image/webp')}}})
+    def import_image(image_id: UUID):
+        path, mime = store.inbox_path(str(image_id))
+        return FileResponse(path, media_type=mime)
+
+    @app.get('/api/v1/imports/{image_id}/thumbnail', dependencies=protected, tags=['Imports'], response_class=FileResponse,
+             responses={200: {'content': {'image/jpeg': {'schema': {'type': 'string', 'format': 'binary'}}}}})
+    def import_thumbnail(image_id: UUID):
+        path, mime = store.inbox_path(str(image_id), True)
+        return FileResponse(path, media_type=mime)
+
+    @app.post('/api/v1/imports/{image_id}/confirm', dependencies=protected, tags=['Imports'], response_model=BlockDetail)
+    def confirm_import(image_id: UUID, body: ConfirmImport):
+        return store.confirm_import(str(image_id), **(body.model_dump() | {'block_id': str(body.block_id)}))
 
     @app.get('/api/v1/blocks', dependencies=protected, tags=['Blocks'], response_model=SearchResults)
     def blocks(query: str = Query('', max_length=120),

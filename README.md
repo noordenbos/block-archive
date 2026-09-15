@@ -30,6 +30,32 @@ Search full codes, case numbers, cassette contents, filing positions or external
 
 The full code and case hierarchy are immutable in this first version. Verify them when registering; correction/merge workflows are not yet implemented. Two-digit years from unfamiliar historical codes require an explicit four-digit year rather than guessing a century.
 
+## Import existing photographs
+
+**Photo inbox** opens `/imports`. It searches imported filenames, barcode readings and label text, including photographs that have not yet been linked to a block. These readings are unverified; a case-only barcode cannot establish the individual cassette. Inspect the full-resolution original, confirm the complete block code, and link to an existing block or register its year/case/subspecimen/cassette fields.
+
+Import a local folder (top-level JPEG, PNG and WebP files; sources are never modified):
+
+```sh
+uv run --no-project --with-requirements requirements.txt python tools/import_folder.py /approved/photo-folder
+```
+
+On macOS, optionally read labels first using Apple's on-device Vision framework:
+
+```sh
+mkdir -p .localdata/import-review
+swift -module-cache-path /tmp/block-archive-swift-cache tools/read_labels.swift /approved/photo-folder .localdata/import-review/labels.json
+uv run --no-project --with-requirements requirements.txt python tools/import_folder.py /approved/photo-folder --labels-json .localdata/import-review/labels.json
+```
+
+Use a private output directory for label readings. Processing sends nothing to an OCR service. The importer preserves original bytes, makes metadata-free thumbnails, deduplicates identical files by SHA-256 and records a private result report. Re-running skips existing images. Console output contains totals only. A failed file is reported privately and does not prevent other images from loading.
+
+Confirming a link records a **historical reference**, not a cutting or physical return event. Its timestamp records import/linking, not capture. It cannot satisfy the requirement for a fresh archive photo. Import images, readings and confirmed links are included in archive backups. Unlinked readings are searchable through the inbox API; confirmed images are also returned through normal block-code lookup.
+
+- `GET /api/v1/imports?query=…&status=pending`: search the inbox; status also accepts `linked` or `all`.
+- `GET /api/v1/imports/{id}` and `/image`, `/thumbnail`: metadata and authenticated images.
+- `POST /api/v1/imports/{id}/confirm`: link using `block_id`, `actor`, `expected_version` and `expected_block_version`.
+
 ## Generic API
 
 Read the [API guide](http://127.0.0.1:8780/static/api.html) and download the typed [OpenAPI schema](http://127.0.0.1:8780/openapi.json) from the running server. The guide is also in [static/api.html](static/api.html).

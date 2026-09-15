@@ -208,3 +208,65 @@ def test_post_cut_from_previous_cycle_stays_invalid(client):
     block = move(client, block, 'complete-cut').json()
     assert move(client, block, 'rearchive', photo_id=previous).status_code == 409
     assert client.get(f'/api/v1/blocks/{block["id"]}').json()['status'] == 'awaiting_archive'
+
+
+def test_import_inbox_search_confirm_and_backup(client, tmp_path):
+    store = client.app.state.archive
+    source = tmp_path / 'camera.png'
+    original = image_bytes('purple')
+    source.write_bytes(original)
+    image_id, created = store.import_image(source, label_text='TEST-CASE-LABEL', barcodes=['TEST-CODE'])
+    assert created
+    assert store.import_image(source)[1] is False
+    assert source.read_bytes() == original
+    results = client.get('/api/v1/imports', params={'query': 'TEST-CODE'}).json()
+    assert results['total'] == results['pending'] == 1
+    entry = results['items'][0]
+    assert client.get(entry['url']).content == original
+    assert not Image.open(io.BytesIO(client.get(entry['thumbnail_url']).content)).getexif()
+    assert client.get('/api/v1/imports', params={'query': "' OR 1=1; --"}).status_code == 200
+    # Pending images must survive backup/restore, even before any block exists.
+    backup = tmp_path / 'pending.zip'
+    store.backup(backup)
+    restored = tmp_path / 'restored'
+    with zipfile.ZipFile(backup) as bundle:
+        bundle.extractall(restored)
+    assert Archive(restored).inbox_path(image_id)[0].read_bytes() == original
+    block = create(client)
+    body = {'actor': 'TEST-TECH', 'block_id': block['id'], 'expected_version': 1,
+            'expected_block_version': block['version']}
+    route = f'/api/v1/imports/{image_id}/confirm'
+    assert client.post(route, json=body | {'expected_block_version': 999}).status_code == 409
+    assert client.get('/api/v1/imports').json()['pending'] == 1
+    response = client.post(route, json=body)
+    assert response.status_code == 200
+    block = response.json()
+    assert block['photos'][0]['kind'] == 'reference'
+    assert block['status'] == 'awaiting_archive' and block['cycle'] == 0
+    assert block['current_photo_id'] is None and block['cut_completed_at'] is None
+    assert move(client, block, 'rearchive', photo_id=image_id).status_code == 409
+    assert client.post(route, json=body).status_code == 409
+    assert client.get('/api/v1/imports').json()['pending'] == 0
+    assert client.get('/api/v1/imports', params={'status': 'linked'}).json()['total'] == 1
+    assert client.get(block['photos'][0]['url']).content == original
+    store.backup(tmp_path / 'linked.zip')
+    with zipfile.ZipFile(tmp_path / 'linked.zip') as bundle:
+        assert len(bundle.namelist()) == len(set(bundle.namelist()))
+    with TestClient(client.app) as anonymous:
+        assert anonymous.get('/api/v1/imports').status_code == 401
+        assert anonymous.get(entry['url']).status_code == 401
+        assert anonymous.post(route, json=body).status_code == 401
+
+
+def test_folder_import_resume_and_reject_invalid(client, tmp_path):
+    from tools.import_folder import import_folder
+    folder = tmp_path / 'input'
+    folder.mkdir()
+    (folder / 'one.jpg').write_bytes(image_bytes())
+    (folder / 'duplicate.jpg').write_bytes(image_bytes())
+    (folder / 'bad.jpg').write_bytes(b'not an image')
+    counts, _ = import_folder(client.app.state.archive, folder)
+    assert counts == {'failed': 1, 'imported': 1, 'already_present': 1}
+    counts, _ = import_folder(client.app.state.archive, folder)
+    assert counts == {'failed': 1, 'already_present': 2}
+    assert client.get('/api/v1/imports').json()['pending'] == 1

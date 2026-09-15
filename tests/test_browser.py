@@ -102,6 +102,27 @@ with tempfile.TemporaryDirectory(prefix='block-archive-browser-') as temporary:
             assert download.value.failure() is None
             page.get_by_role('link',name='API guide').click()
             expect(page.get_by_role('heading',name='A stable link to every block.')).to_be_visible()
+            # Review a historical photo without inventing a cutting/return event.
+            imported = Path(temporary) / 'historical.png'
+            imported.write_bytes(specimen_image('C2', True))
+            app.state.archive.import_image(imported, label_text='TEST-2026-001235-C2', barcodes=['TEST-2026-001235-C2'])
+            page.goto(origin+'/imports')
+            page.locator('#operator').fill('TEST-TECH')
+            page.locator('#search').fill('001235')
+            expect(page.locator('[data-import]')).to_have_count(1)
+            page.locator('[data-import]').click()
+            expect(page.locator('#confirmForm')).to_be_visible()
+            page.locator('#lookup').click()
+            expect(page.locator('#match')).to_contain_text('Found:')
+            page.locator('#verified').check()
+            page.locator('#confirm').click()
+            expect(page.locator('#openBlock')).to_be_visible()
+            expect(page.locator('#pendingCount')).to_have_text('0')
+            page.set_viewport_size({'width':390,'height':844})
+            assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+            page.locator('#openBlock').click()
+            expect(page.locator('#record h2')).to_have_text('TEST-2026-001235-C2')
+            expect(page.locator('#rearchive')).to_be_disabled()
             assert not errors,errors
             browser.close()
         print('PASS: browser search, case hierarchy, post-cut return, photo history, data links, registration, mobile layout and backup.')

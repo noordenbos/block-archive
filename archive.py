@@ -9,6 +9,7 @@ import re
 import sqlite3
 import uuid
 from PIL import Image, ImageOps, UnidentifiedImageError
+from import_inbox import ImportInbox
 
 MAX_IMAGE_BYTES = 20 * 1024 * 1024
 MAX_PIXELS = 40_000_000
@@ -32,7 +33,7 @@ class ArchiveError(Exception):
         super().__init__(message)
 
 
-class Archive:
+class Archive(ImportInbox):
     def __init__(self, directory):
         self.directory = Path(directory).resolve()
         self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -40,7 +41,7 @@ class Archive:
         self.images.mkdir(exist_ok=True, mode=0o700)
         self.database = self.directory / 'archive.sqlite3'
         with self.connect() as db:
-            if db.execute('PRAGMA user_version').fetchone()[0] not in (0, 1):
+            if db.execute('PRAGMA user_version').fetchone()[0] not in (0, 1, 2):
                 raise RuntimeError('Unsupported archive database version; no migration was attempted.')
             db.executescript('''
                 PRAGMA journal_mode=WAL;
@@ -81,8 +82,9 @@ class Archive:
                     block_id UNINDEXED, block_code, description, location, external_ids,
                     tokenize='unicode61', prefix='2 3 4'
                 );
-                PRAGMA user_version=1;
             ''')
+            self.init_inbox(db)
+            db.execute('PRAGMA user_version=2')
 
     @contextmanager
     def connect(self, write=False):
@@ -322,7 +324,7 @@ class Archive:
                     source.backup(target)
                 with zipfile.ZipFile(destination, 'w', zipfile.ZIP_DEFLATED) as archive:
                     archive.write(temporary, 'archive.sqlite3')
-                    for row in lock.execute('SELECT id FROM photos'):
+                    for row in lock.execute('SELECT id FROM photos UNION SELECT id FROM import_images'):
                         for suffix in ('.source', '.jpg'):
                             path = self.images / (row['id'] + suffix)
                             archive.write(path, 'images/' + path.name)
