@@ -1,61 +1,84 @@
-# Spatial Prep
+# Block Archive
 
-Plan FFPE block scoring and recipient-slide placement for spatial transcriptomics. Spatial Prep pairs block photographs, maps retained tissue, checks placement geometry, and creates a technician handoff report.
+A local pathology block organizer, derived from [Spatial Prep](https://github.com/noordenbos/spatial-prep). It follows a **year → case → subspecimen → cassette** archive and maintains a searchable photographic record each time a block returns after cutting.
 
-**Local research software.** The application runs on your computer and starts with an empty experiment. Laboratory validation and institutional approval remain separate from this software release. Exported plans require operator review.
+For example, B4 means subspecimen B, cassette 4. The full printed block code remains the lookup key for other systems; the separate case fields determine filing order and group related blocks. Known cassette contents are searchable.
 
 ## Start
 
-Install Python 3.11 or newer and [uv](https://docs.astral.sh/uv/), then run from this directory:
+Python 3.11+ and [uv](https://docs.astral.sh/uv/) are required for this command:
 
 ```sh
 uv run --no-project --with-requirements requirements.txt python server.py
 ```
 
-Open [Spatial Prep](http://127.0.0.1:8774). Leave the terminal running. The first run may download dependencies. Subsequent image and ID processing is local; the app has no analytics or external processing service.
+Open [Block Archive](http://127.0.0.1:8780). Spatial Prep can continue running separately on port 8774. Alternatively, install `requirements.txt` in a virtual environment and run `python server.py`.
 
-Alternatively, create a Python virtual environment, install `requirements.txt`, and run `python server.py` inside it. See [RUN.md](RUN.md) for details and troubleshooting.
+The app starts empty. It stores the database, original photographs, thumbnails and API token in `.localdata/`, excluded from Git. Set `BLOCK_ARCHIVE_DATA_DIR` or `--data-dir` to use another approved directory. Do not use a network filesystem for the SQLite database.
 
-## From block to slide
+## Technician workflow
 
-1. **Download and print the mat.** Use the app’s **Download photo mats** link. Choose A4 or Letter and print page 1 at 100%. Page 2 includes the photography guide.
-2. **Prepare matching ID + QR labels.** Paste IDs or load a CSV in **Print ID + QR labels**. Check that the printed text, QR value and physical block agree.
-3. **Capture and ingest.** Take identifier-side and tissue-side photographs for each block. Keep all four markers and the matching label visible. Ingest the folder; review ambiguous or unmatched captures.
-4. **Draw scoring polygons.** Outline each retained piece. Its edges define the scoring lines. Record orientation and technician notes.
-5. **Configure and map slides.** Enter the exact slide product, usable dimensions, margins and protocol revision. Place pieces, set rotations, and review overlap and clearance checks.
-6. **Review and export.** Download the HTML instruction deck, print it to PDF, and save an experiment backup. Backups include source photographs and IDs.
+1. Enter your operator name or initials. Register the **full block code**, archive year, case number, subspecimen and cassette number. Add the known cassette contents.
+2. Add an initial photograph and confirm the block's first archive position.
+3. **Check out for cutting** when the block leaves the archive.
+4. **Mark cutting complete** when cutting is finished.
+5. Take and upload a **new post-cut photo**. Return the block to its year–case/subspecimen/cassette position and confirm rearchiving.
 
-## Privacy and storage
+Every cycle keeps its photographs and recorded events. A previous-cycle image, another block’s image, or a reference image cannot satisfy rearchiving. Re-uploading identical image bytes for the same block is rejected. This checks uploads, not when the physical photograph was taken; the operator remains responsible for verifying the code and image.
 
-The server binds to `127.0.0.1` and serves only listed app assets. Photos sent from the browser to the local analyzer are processed in memory. Experiments, source photographs and analysis results are stored in browser IndexedDB. Exported files remain wherever you save them.
+Search full codes, case numbers, cassette contents, filing positions or external IDs. Case blocks are sorted numerically: B4 precedes B10. The selected record shows the other blocks in its case. A barcode scanner that enters text and presses Enter can use the main search field.
 
-There is no built-in user authentication, encryption at rest, audit trail, or automatic retention policy. Use identifiable material only in an institution-approved environment and workflow. Do not expose the server to a network. Image re-encoding does not remove visible labels, and backups can contain original image metadata. See [SECURITY.md](SECURITY.md).
+The full code and case hierarchy are immutable in this first version. Verify them when registering; correction/merge workflows are not yet implemented. Two-digit years from unfamiliar historical codes require an explicit four-digit year rather than guessing a century.
 
-## Accuracy and release scope
+## Generic API
 
-- Marker registration corrects the paper plane; it does not measure block height or lens distortion.
-- Capture-height bounds and scoring tolerance are user-entered assumptions, not validated confidence intervals. The 17 cm illustration is one setup example; update the capture bounds to match your setup.
-- Side classification uses printed-rim features and may need manual assignment. QR decoding does not verify the visible human-readable ID.
-- The initial 10 × 22 mm placement window is an example. Platform names do not load manufacturer-validated geometry. Complex exclusion zones are not implemented.
-- Coordinates use the placement window’s top-left, with each piece positioned by its polygon vertex-average center. Mirror acts horizontally in the source image before clockwise rotation.
-- Reports are enlarged planning aids, not cutting templates or immutable laboratory release records.
+Read the [API guide](http://127.0.0.1:8780/static/api.html) and download the typed [OpenAPI schema](http://127.0.0.1:8780/openapi.json) from the running server. The guide is also in [static/api.html](static/api.html).
 
-## Development
+External clients authenticate with `Authorization: Bearer <token>` using the token in `.localdata/api-token`. Do not commit, log or send that token with a project backup. The browser uses a separate same-origin HttpOnly session cookie.
+
+Key routes:
+
+- `GET /api/v1/blocks/by-code?block_code=…`: exact code lookup, with photos and history.
+- `GET /api/v1/blocks?year=2026&case_number=001234`: all blocks within a case; paginated.
+- `GET /api/v1/blocks?query=…&status=awaiting_archive`: indexed search and return queue.
+- `POST /api/v1/blocks/{id}/photos`: authenticated photo upload.
+- `POST /api/v1/blocks/{id}/checkout`, `/complete-cut`, `/rearchive`: recorded workflow transitions.
+- `PUT /api/v1/blocks/{id}/external-links`: references to other systems or datasets.
+- `GET /api/v1/events?after=…`: incremental event feed for polling integrations.
+
+Every update requires a recorded actor and current record version. Stale updates return 409 instead of overwriting another change. UUIDs are stable; exact block-code lookup trims whitespace and ignores case. The year/case/subspecimen/cassette identity is also unique within the installation. Different laboratories with overlapping identifiers need separate namespaces or installations.
+
+No LIS/LIMS connector or outbound webhook is configured. Image URLs are authenticated, not public links. An external system can resolve its block code, retrieve images with the API token, or link users to `/?block=<URL-encoded code>` on this server.
+
+## Backup and recovery
+
+Use **Back up archive** for a consistent ZIP of the database and all stored image files. The API token is deliberately excluded. For larger archives, use:
 
 ```sh
-node tests/geometry.test.js
-node tests/ingest.test.js
-node tests/scoring-edit.test.js
-uv run --no-project --with-requirements requirements-dev.txt python tests/test_pipeline.py
-uv run --no-project --with-requirements requirements-dev.txt python tests/test_registration.py
-uv run --no-project --with-requirements requirements-dev.txt python tests/test_server.py
-uv run --no-project --with-requirements requirements-dev.txt python -m playwright install chromium
-uv run --no-project --with-requirements requirements-dev.txt python tests/test_browser.py
-uv run --no-project --with-requirements requirements-dev.txt python tools/audit_release.py
+uv run --no-project --with-requirements requirements.txt python tools/backup.py --output /approved/path/archive-backup.zip
 ```
 
-Tests generate synthetic IDs and images in memory. They do not need a specimen list or local photographs. See [RELEASE.md](RELEASE.md) for publication preparation and [LICENSING.md](LICENSING.md) for licensing and commercial use.
+To restore, stop the server, extract a trusted backup into a **new empty data directory**, and start with `--data-dir` pointing to it. A new API token is generated; update clients. Test recovery before relying on a backup. Photographs and backups can contain identifiers and original metadata. Archive access is briefly locked against changes while a backup is copied.
 
-## License
+## Scope and data handling
 
-Free for uses permitted by [PolyForm Noncommercial 1.0.0](LICENSE), including its educational and public-research permissions. Other uses require a [separate commercial agreement](COMMERCIAL_LICENSE.md).
+This is a local, single-archive first release, not a deployed hospital information system. It has a shared API credential and self-declared operator attribution, not verified staff identity or roles. See [SECURITY.md](SECURITY.md) before handling identifiable material or planning a network deployment. The event history is append-only through the API but is not tamper-proof against someone with filesystem access.
+
+Original photos are retained unchanged; thumbnails remove source metadata. All data processing runs locally, without analytics or external scripts. No record deletion, retention policy, multi-site namespace, LIS synchronization, or clinical validation is implemented. Institutions must determine approved use and storage.
+
+## Tests
+
+```sh
+uv run --no-project --with-requirements requirements-dev.txt pytest -q tests/test_api.py
+uv run --no-project --with-requirements requirements-dev.txt python -m playwright install chromium
+uv run --no-project --with-requirements requirements-dev.txt python tests/test_browser.py
+python tools/check_publication.py
+```
+
+Tests use generated synthetic records and images in temporary directories. They cover the return cycle, image freshness constraints, case hierarchy, indexed search, external links, version conflicts, authentication, backup/recovery and browser workflows.
+
+## License and origin
+
+[PolyForm Noncommercial 1.0.0](LICENSE), with [separate commercial licensing](COMMERCIAL_LICENSE.md) for uses outside its permissions. See [LICENSING.md](LICENSING.md).
+
+Forked from Spatial Prep's clean release commit `eed0534c594661cc8ed67770133de04309cc281a`. The existing spatial planning app is unchanged. This fork retains the license and label generator, while replacing the planning workspace with persistent archive records and a versioned API.

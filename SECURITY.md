@@ -1,21 +1,29 @@
-# Security and data handling
+# Security and deployment scope
 
-Spatial Prep is designed for a single user on a local computer. It is not a hosted multi-user service and does not implement authentication, encryption at rest, audit trails, retention enforcement or institutional compliance certification.
+Block Archive currently runs on loopback for one local archive. It is not a configured institutional or network service.
 
-## Data boundaries
+## Implemented boundaries
 
-- Browser-to-analyzer requests remain on loopback; image processing is in memory.
-- Browser IndexedDB retains experiments, source images and analysis results. Backups include these data and may include original metadata.
-- Tissue photographs, textual IDs and notes may appear in exported instruction reports. Excluding an identifier-side photo does not make a report de-identified.
-- Static HTTP access is restricted to an explicit set of app assets. Local ID lists, photographs, source code and Git metadata are not served.
-- A local capture quarantine can be configured in `.local/blocked-capture-hashes.json`. It is excluded from publication and cannot replace checking the physical label.
+- API block data, images, event history, label PDFs and backups require a bearer token or same-origin browser session.
+- The API token is generated locally, saved with owner-only file permissions and never included in backups or returned to the browser.
+- Browser sessions use a separate HttpOnly, SameSite=Strict cookie. Cookie-authenticated writes require the expected Origin and a custom header. Unexpected hosts are rejected; CORS is not enabled.
+- Static routes serve only the selected UI assets. Database files, photographs on disk, Git files and tokens are not served as static content.
+- Images use generated UUID filenames. Decoding validates file type, dimensions and size. Thumbnails omit source metadata; originals are retained as uploaded.
+- SQLite transactions coordinate state changes, image references and events. Clients must supply the current version, and invalid transitions are rejected.
+- No analytics, external browser scripts, outbound link fetches or external image services are used. HTTP access logging is disabled.
 
-Use an approved device, capture app, transfer route and storage location when handling identifiable information. Do not publish screenshots, project backups, ID lists or logs containing real data. A file named “dummy” is not evidence that its contents are synthetic.
+## Limits before institutional deployment
 
-## Reporting a concern
+The shared bearer token is an installation credential, not an individual identity. Operator names are self-declared. The event ledger cannot resist changes by an administrator with access to the database. The archive has no role-based access control, encryption at rest, retention enforcement, deletion workflow or clinical validation.
 
-Do not place patient information or credentials in public issues, discussions or pull requests. Report security issues privately to the repository owner; arrange an approved transfer route before sharing sensitive evidence. Use synthetic reproductions where possible.
+A hospital deployment needs appropriate identity integration, user permissions, HTTPS, secure storage and backup, retention/deletion procedures and an institutional security review. Do not expose the current loopback service directly to a network or treat this release as approval to process PHI.
 
-## Publication review
+Original photos can retain visible identifiers and metadata, including location metadata. Backups and API responses can contain identifying information. Use institution-approved capture, transfer and storage arrangements. Archive directories are not publication inputs even when someone calls their contents “dummy”.
 
-The release snapshot uses an explicit file manifest and independent Git history. Automated screening detects selected identifier and credential patterns, unexpected files and media changes; it cannot establish the absence of all PHI. The maintainer must review the final artifacts and repository visibility before publication.
+## Backups and credentials
+
+Store backups outside the Git checkout in an approved location. Restore only trusted ZIP files into a new empty directory while the service is stopped. A fresh directory generates a new API credential. To rotate credentials, stop the service, remove its `api-token` file, restart, and securely update clients. Restart also invalidates browser sessions until users reload the archive page.
+
+## Reporting
+
+Report security problems privately to the repository maintainer. Do not include patient information, specimen identifiers, photographs, credentials or archive backups in public issues or pull requests. Use synthetic reproductions.

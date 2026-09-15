@@ -6,4 +6,4 @@ To discuss a license, contact the [repository maintainer](https://github.com/noo
 
 Uses already permitted by PolyForm do not require a separate paid license. In particular, the license includes permissions for educational, public research and other listed organizations regardless of funding. The full license controls those permissions.
 
-Third-party dependencies retain their own terms. A commercial license for Spatial Prep would not replace them or provide clinical validation or institutional approval.
+Third-party dependencies retain their own terms. A commercial license for Block Archive would not replace them or provide clinical validation or institutional approval.
