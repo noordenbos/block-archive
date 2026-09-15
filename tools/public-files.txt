@@ -9,6 +9,7 @@ archive.py
 import_inbox.py
 label_pdf.py
 requirements-dev.txt
+requirements-export.txt
 requirements.txt
 server.py
 static/api.html
@@ -19,8 +20,10 @@ static/index.html
 static/style.css
 tests/test_api.py
 tests/test_browser.py
+tests/test_export.py
 tools/backup.py
 tools/check_publication.py
+tools/export_crops.py
 tools/import_folder.py
 tools/public-files.txt
 tools/read_labels.swift

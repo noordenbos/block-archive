@@ -56,6 +56,20 @@ Confirming a link records a **historical reference**, not a cutting or physical 
 - `GET /api/v1/imports/{id}` and `/image`, `/thumbnail`: metadata and authenticated images.
 - `POST /api/v1/imports/{id}/confirm`: link using `block_id`, `actor`, `expected_version` and `expected_block_version`.
 
+## Export cropped, paired photographs
+
+The optional exporter creates a PDF with paired tissue/cassette views and a computer-readable ZIP containing JPEG crops, `manifest.json` and one-item-per-line `pairs.jsonl`. Full source photographs are excluded. Output must be a new directory inside private storage:
+
+```sh
+uv run --no-project --with-requirements requirements-export.txt python tools/export_crops.py --review-json .localdata/view-review.json --output .localdata/exports/new-export
+```
+
+The private review JSON maps each image UUID to `view` (`tissue_face`, `cassette_side` or `unknown`), optional `barcode_code` chosen from that image's readings, `method` and `note`. Never commit this file. Without assignments, faces remain unknown. Cropping requires at least three matching mat markers and a checked perspective fit; a failed crop never falls back to exporting the full photograph.
+
+EXIF capture timestamps retain their fractional seconds and UTC offsets. Filename timestamps are only a fallback and have an unknown timezone. Import times are never substituted. Crops resample the original pixels after EXIF orientation, retain the complete block zone and strip embedded source metadata; timestamp provenance is explicit in the JSON and PDF.
+
+Pairing uses the same selected barcode, different faces and a capture gap of at most five minutes. Repeated codes, unclear faces and missing counterparts are flagged. Barcode readings remain unconfirmed specimen identifiers; use the stable item/image UUIDs rather than assuming barcode values are unique. These exports do not change archive records or physical workflow state.
+
 ## Generic API
 
 Read the [API guide](http://127.0.0.1:8780/static/api.html) and download the typed [OpenAPI schema](http://127.0.0.1:8780/openapi.json) from the running server. The guide is also in [static/api.html](static/api.html).
