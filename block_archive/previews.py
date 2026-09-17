@@ -3,7 +3,7 @@ from pathlib import Path
 import tempfile
 import threading
 from PIL import Image
-from archive import ArchiveError
+from block_archive.archive import ArchiveError
 from tools.export_crops import block_crop
 
 _CROPS = threading.BoundedSemaphore(2)

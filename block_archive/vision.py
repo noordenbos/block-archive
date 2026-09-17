@@ -18,7 +18,7 @@ def marker_detector():
 
 @lru_cache(maxsize=1)
 def reference_markers():
-    template=cv2.imread(str(Path(__file__).parent/'artefacts/preview/FFPE-photography-A4.png'))
+    template=cv2.imread(str(Path(__file__).resolve().parents[1]/'planner/artefacts/preview/FFPE-photography-A4.png'))
     if template is None: raise ValueError('Photography template reference is missing')
     corners,ids,_=marker_detector().detectMarkers(template)
     return {int(i):c[0] for i,c in zip(ids.flatten(),corners) if int(i)<4}

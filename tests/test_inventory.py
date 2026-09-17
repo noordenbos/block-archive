@@ -3,7 +3,7 @@ import json
 import zipfile
 from fastapi.testclient import TestClient
 from test_api import client, create, photo, image_bytes, TOKEN
-from server import create_app
+from block_archive.server import create_app
 
 
 def items(client):

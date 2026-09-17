@@ -6,10 +6,8 @@ import re
 import subprocess
 import sys
 import tempfile
-from archive import ArchiveError
-import projects
-
-
+from block_archive.archive import ArchiveError
+from block_archive import projects
 def atomic(path, writer):
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     fd, temporary = tempfile.mkstemp(prefix='.saving-', dir=path.parent)

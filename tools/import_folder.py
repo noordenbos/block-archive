@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from archive import Archive, ArchiveError
+from block_archive.archive import Archive, ArchiveError
 
 
 def import_folder(store, source, labels=None):

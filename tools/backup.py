@@ -4,7 +4,7 @@ from pathlib import Path
 import os
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from archive import Archive
+from block_archive.archive import Archive
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--data-dir', type=Path, default=Path(os.environ.get('BLOCK_ARCHIVE_DATA_DIR', Path(__file__).resolve().parents[1] / '.localdata')))

@@ -4,10 +4,8 @@ import pytest
 from fastapi.testclient import TestClient
 from test_api import client, create, photo, image_bytes, TOKEN
 from test_inventory import items, selection, entry
-from server import create_app
-import capture_review
-
-
+from block_archive.server import create_app
+from block_archive import capture_review
 def preview(client, text, column=None):
     return client.post('/api/v1/metadata/preview',json={'text':text,'id_column':column})
 

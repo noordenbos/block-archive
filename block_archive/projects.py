@@ -12,9 +12,8 @@ import threading
 from urllib.parse import urlsplit
 from uuid import UUID
 from PIL import Image
-from archive import Archive, ArchiveError, MAX_IMAGE_BYTES, MAX_PIXELS, now, uid
-import inventory
-
+from block_archive.archive import Archive, ArchiveError, MAX_IMAGE_BYTES, MAX_PIXELS, now, uid
+from block_archive import inventory
 TABLES = ('blocks', 'photos', 'external_links', 'events', 'import_images', 'inventory_labels',
           'planning_selections', 'inventory_metadata', 'capture_analysis', 'capture_assignments', 'capture_reviews')
 MAX_PROJECT_BYTES = 2 * 1024 ** 3
@@ -139,7 +138,7 @@ def validate_json_columns(table, row):
         if table in ('import_images','inventory_labels') and not all(isinstance(value,str) for value in parsed):
             raise ValueError('Invalid label list.')
         if table == 'inventory_metadata':
-            import metadata
+            from block_archive import metadata
             metadata.clean_fields(parsed)
         if table == 'capture_analysis':
             if parsed.get('qrValues') is not None and (not isinstance(parsed['qrValues'],list) or not all(isinstance(value,str) for value in parsed['qrValues'])):

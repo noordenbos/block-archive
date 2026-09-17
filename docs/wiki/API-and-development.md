@@ -45,3 +45,20 @@ Tests use generated synthetic records and images in temporary directories. They 
 This is a local project workspace, not a deployed hospital information system. It has a shared API credential and self-declared operator attribution, not verified staff identity or roles. See [SECURITY.md](../../SECURITY.md) before handling identifiable material or planning a network deployment. The event history is append-only through the API but is not tamper-proof against someone with filesystem access.
 
 Original photos are retained unchanged; thumbnails remove source metadata. All data processing runs locally, without analytics or external scripts. No record deletion, retention policy, multi-site namespace, LIS synchronization, or clinical validation is implemented. Institutions must determine approved use and storage.
+
+## Repository layout
+
+```text
+block_archive/   Python application: API, archive storage, inventory, QC and imaging
+static/          Inventory and archive browser interface
+planner/         Spatial planner interface and printable photography assets
+tools/           Import, backup, export, documentation and publication utilities
+tests/           Synthetic API, browser and geometry checks
+docs/            Wiki pages and reviewed documentation images
+server.py        Small compatibility launcher
+requirements*.txt  Runtime and development dependencies
+```
+
+Run the documented `python server.py` command from the repository root, or use `python -m block_archive` with the same options and dependencies. Import the app factory as `from block_archive.server import create_app`. The root launcher also re-exports it for existing integrations.
+
+The default private data directory remains `.localdata/` at the repository root. Moving Python modules does not move or migrate user data. Image templates and browser assets are resolved relative to the installation, independently of the shell's working directory.

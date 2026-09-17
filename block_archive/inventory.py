@@ -1,11 +1,9 @@
 """Inventory views and immutable experiment selections over existing archive records."""
 import hashlib
 import json
-from archive import ArchiveError, now, uid
-import metadata
-import capture_review
-
-
+from block_archive.archive import ArchiveError, now, uid
+from block_archive import metadata
+from block_archive import capture_review
 def initialize(store):
     with store.connect() as db:
         db.executescript('''

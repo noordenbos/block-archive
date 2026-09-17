@@ -9,7 +9,7 @@ import re
 import sqlite3
 import uuid
 from PIL import Image, ImageOps, UnidentifiedImageError
-from import_inbox import ImportInbox
+from block_archive.import_inbox import ImportInbox
 
 MAX_IMAGE_BYTES = 20 * 1024 * 1024
 MAX_PIXELS = 40_000_000

@@ -1,8 +1,8 @@
 """Stored photo analysis, declared block sides and exception-only import review."""
 import hashlib
 import json
-from planner.side_detection import choose_sides
-from archive import ArchiveError, now
+from block_archive.side_detection import choose_sides
+from block_archive.archive import ArchiveError, now
 
 
 def initialize(db):
@@ -95,7 +95,7 @@ def save_review(store, key, revision, photos, actor, accept, missing_side=""):
         raise ArchiveError(422, "Choose a valid missing-side exception.")
     if missing_side and not accept:
         raise ArchiveError(422, "Confirm QC before continuing with a missing side.")
-    import inventory
+    from block_archive import inventory
     with store.connect(write=True) as db:
         original = inventory.snapshot(store,db).get(key)
         if not original or original['revision'] != revision:

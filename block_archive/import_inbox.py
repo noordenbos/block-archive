@@ -23,7 +23,7 @@ class ImportInbox:
         ''')
 
     def import_image(self, path, actor='Folder import', label_text='', barcodes=None, filename=None):
-        from archive import ArchiveError, MAX_IMAGE_BYTES, MAX_PIXELS, now, uid
+        from block_archive.archive import ArchiveError, MAX_IMAGE_BYTES, MAX_PIXELS, now, uid
         path = Path(path)
         with path.open('rb') as source_file:
             raw = source_file.read(MAX_IMAGE_BYTES + 1)
@@ -75,7 +75,7 @@ class ImportInbox:
         return result
 
     def inbox_detail(self, image_id):
-        from archive import ArchiveError
+        from block_archive.archive import ArchiveError
         with self.connect() as db:
             row = db.execute('SELECT * FROM import_images WHERE id=?', (image_id,)).fetchone()
             if not row:
@@ -100,7 +100,7 @@ class ImportInbox:
                 'offset': offset, 'limit': limit, 'next_offset': offset + limit if offset + limit < total else None}
 
     def inbox_path(self, image_id, thumbnail=False):
-        from archive import ArchiveError
+        from block_archive.archive import ArchiveError
         record = self.inbox_detail(image_id)
         path = self.images / (record['id'] + ('.jpg' if thumbnail else '.source'))
         if not path.is_file():
@@ -108,7 +108,7 @@ class ImportInbox:
         return path, 'image/jpeg' if thumbnail else record['content_type']
 
     def confirm_import(self, image_id, block_id, actor, expected_version, expected_block_version):
-        from archive import ArchiveError, now
+        from block_archive.archive import ArchiveError, now
         with self.connect(write=True) as db:
             image = db.execute('SELECT * FROM import_images WHERE id=?', (image_id,)).fetchone()
             if not image:

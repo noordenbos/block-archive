@@ -18,11 +18,9 @@ sys.path.insert(0,str(ROOT))
 import uvicorn
 from PIL import Image,ImageDraw
 from playwright.sync_api import sync_playwright
-from server import create_app
-import capture_review
-import inventory
-
-
+from block_archive.server import create_app
+from block_archive import capture_review
+from block_archive import inventory
 def synthetic_photo(index):
     image=Image.new('RGB',(900,600),'#edf0e6')
     draw=ImageDraw.Draw(image)

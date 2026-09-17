@@ -2,7 +2,7 @@
 import csv
 import io
 import json
-from archive import ArchiveError, now
+from block_archive.archive import ArchiveError, now
 
 
 def initialize(db):
@@ -89,7 +89,7 @@ def parse_table(text, column=None):
 
 
 def preview(store, text, column=None):
-    from inventory import snapshot
+    from block_archive.inventory import snapshot
     headers, selected, parsed = parse_table(text, column)
     with store.connect() as db:
         db.execute('BEGIN')

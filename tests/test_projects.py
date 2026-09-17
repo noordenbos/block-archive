@@ -4,11 +4,9 @@ import copy
 import json
 from fastapi.testclient import TestClient
 from test_api import client, create, photo, TOKEN
-import capture_review
-import inventory
-import metadata
-
-
+from block_archive import capture_review
+from block_archive import inventory
+from block_archive import metadata
 def experiment():
     return {'version':1,'name':'Synthetic plan','experimentId':'test-plan','blocks':[],
             'slides':[{'id':'slide-one','name':'SLIDE-001','placements':[]}],
@@ -135,7 +133,7 @@ def test_local_saves_default_custom_and_project_isolation(client,tmp_path):
 
 
 def test_failed_local_save_preserves_previous_file(client,monkeypatch):
-    import local_saves
+    from block_archive import local_saves
     from pathlib import Path
     state=experiment()
     response=client.post('/api/v1/local-saves/experiment',json=state)

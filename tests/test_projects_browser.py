@@ -10,12 +10,11 @@ import time
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 import uvicorn
 from playwright.sync_api import sync_playwright, expect
-from server import create_app
+from block_archive.server import create_app
 from test_api import image_bytes
 from test_projects import experiment
-import capture_review
-import metadata
-
+from block_archive import capture_review
+from block_archive import metadata
 with tempfile.TemporaryDirectory(prefix='projects-browser-') as temporary:
     folder=Path(temporary)
     sock=socket.socket();sock.bind(('127.0.0.1',0));origin='http://127.0.0.1:'+str(sock.getsockname()[1])

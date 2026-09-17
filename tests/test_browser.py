@@ -13,7 +13,7 @@ import httpx
 import uvicorn
 from PIL import Image, ImageDraw
 from playwright.sync_api import sync_playwright, expect
-from server import create_app
+from block_archive.server import create_app
 
 TOKEN = 'synthetic-browser-test-api-token-only'
 

@@ -9,12 +9,10 @@ import time
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import uvicorn
 from playwright.sync_api import sync_playwright, expect
-from server import create_app
+from block_archive.server import create_app
 from test_api import image_bytes
-import inventory
-import capture_review
-
-
+from block_archive import inventory
+from block_archive import capture_review
 with tempfile.TemporaryDirectory(prefix='inventory-browser-') as temporary:
     sock = socket.socket(); sock.bind(('127.0.0.1', 0)); port = sock.getsockname()[1]
     origin = f'http://127.0.0.1:{port}'

@@ -6,7 +6,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 import cv2
 import numpy as np
 import pytest
-from planner.side_detection import printing_evidence,choose_sides
+from block_archive.side_detection import printing_evidence,choose_sides
 
 
 def zone(text=None,y=215,reverse=False,font=cv2.FONT_HERSHEY_SIMPLEX,brightness=0):

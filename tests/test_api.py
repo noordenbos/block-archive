@@ -6,8 +6,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
-from archive import Archive
-from server import create_app
+from block_archive.archive import Archive
+from block_archive.server import create_app
 
 TOKEN = 'test-token-used-only-for-synthetic-tests'
 
@@ -130,7 +130,7 @@ def test_validation_and_private_files(client):
         data={'actor': 'TEST-TECH', 'expected_version': block['version'], 'kind': 'baseline'},
         files={'file': ('bad.png', b'not an image', 'image/png')})
     assert response.status_code == 422
-    for path in ('/.git/config', '/.localdata/api-token', '/archive.py', '/static/../server.py', '/static/nope'):
+    for path in ('/.git/config', '/block_archive/server.py', '/block_archive/archive.py', '/.localdata/api-token', '/archive.py', '/static/../server.py', '/static/nope'):
         assert client.get(path).status_code == 404
     assert client.get('/api/v1/blocks', headers={'Host': 'hostile.invalid'}).status_code == 403
     assert client.get('/api/v1/blocks', headers={'Authorization': '', 'Origin': 'https://example.org'}).status_code == 403
