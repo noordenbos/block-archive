@@ -29,6 +29,8 @@ def main():
     manifest = set((ROOT / 'tools/public-files.txt').read_text().splitlines())
     reviewed = git('show', CLEAN_BASE + ':tools/reviewed-assets.sha256').decode().splitlines()
     approved = {line.split('  ', 1)[1]: line.split('  ', 1)[0] for line in reviewed}
+    docs_review = (ROOT / 'tools/reviewed-docs.sha256').read_text().splitlines()
+    approved.update({line.split('  ',1)[1]:line.split('  ',1)[0] for line in docs_review})
     problems = set(); inspected = set()
 
     def check(path, data, history=False):

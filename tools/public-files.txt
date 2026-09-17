@@ -7,9 +7,20 @@ README.md
 SECURITY.md
 archive.py
 capture_review.py
+docs/assets/README.md
+docs/assets/workflow.png
+docs/wiki/API-and-development.md
+docs/wiki/Block-checkout.md
+docs/wiki/Home.md
+docs/wiki/Import-and-export.md
+docs/wiki/Installation.md
+docs/wiki/Photo-inventory.md
+docs/wiki/Spatial-experiments.md
+docs/wiki/Storage-and-backups.md
 import_inbox.py
 inventory.py
 label_pdf.py
+local_saves.py
 metadata.py
 planner/app.js
 planner/artefacts/FFPE-photography-A4.pdf
@@ -32,6 +43,7 @@ planner/placement-workflow.js
 planner/project-format.js
 planner/side-detection.js
 planner/side_detection.py
+planner/slide-assignment.js
 planner/style.css
 planner/vision.py
 previews.py
@@ -56,6 +68,7 @@ static/project-workspace.js
 static/style.css
 tests/geometry.test.js
 tests/ingest.test.js
+tests/project-format.test.js
 tests/scoring-edit.test.js
 tests/side-decisions.json
 tests/side-detection.test.js
@@ -75,6 +88,5 @@ tools/import_folder.py
 tools/planner-assets.txt
 tools/public-files.txt
 tools/read_labels.swift
-tests/project-format.test.js
-planner/slide-assignment.js
-local_saves.py
+tools/render_readme.py
+tools/reviewed-docs.sha256

@@ -21,3 +21,6 @@ __pycache__/
 !planner/artefacts/preview/FFPE-photography-A4.png
 !planner/artefacts/preview/FFPE-photography-Letter-instructions.png
 !planner/artefacts/preview/FFPE-photography-Letter.png
+
+# Synthetic documentation panel, separately reviewed and hash-checked.
+!docs/assets/workflow.png
