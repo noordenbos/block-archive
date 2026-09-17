@@ -1,0 +1,13 @@
+const assert=require('node:assert/strict');
+global.window=global;
+require('../planner/project-format.js');
+const original={blocks:[{inventory:{blockId:'synthetic'},photo:'working',identifier:'identifier-original',sources:[{photoId:'one',hash:'hash',role:'tissue',image:'original',canonical:'duplicate',source:'original'}],analysis:{photo:'duplicate',canonical:'duplicate',markerIds:[0,1,2,3]},mmPerPx:.05,calibration:{points:[[0,0],[1300,0]],length:65},scores:[[[10,20],[20,30]]],regions:[{points:[[1,2],[3,4],[5,6]]}]},{photo:'standalone',identifier:'standalone-id',sources:[{image:'standalone-original'}]}],slides:[{placements:[{regionId:'region',angle:45}]}]};
+const snapshot=structuredClone(original),compact=ProjectFormat.compact(original);
+assert.deepEqual(original,snapshot,'Compaction must not mutate the open plan');
+assert.equal(compact.blocks[0].identifier,null);
+assert.deepEqual(compact.blocks[0].sources,[{photoId:'one',hash:'hash',role:'tissue'}]);
+assert.deepEqual(compact.blocks[0].analysis,{markerIds:[0,1,2,3]});
+for(const key of ['photo','mmPerPx','calibration','scores','regions'])assert.deepEqual(compact.blocks[0][key],original.blocks[0][key],key);
+assert.deepEqual(compact.slides,original.slides);
+assert.deepEqual(compact.blocks[1],original.blocks[1],'Standalone imports retain their original assets');
+console.log('PASS: compact inventory experiments preserve scoring geometry and standalone plans.');

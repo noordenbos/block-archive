@@ -14,3 +14,10 @@ __pycache__/
 .env*
 .DS_Store
 .pytest_cache/
+
+# Reviewed photography guides bundled with the planner (hash-checked by publication audit).
+!planner/artefacts/examples/phone-stand-17cm.png
+!planner/artefacts/preview/FFPE-photography-A4-instructions.png
+!planner/artefacts/preview/FFPE-photography-A4.png
+!planner/artefacts/preview/FFPE-photography-Letter-instructions.png
+!planner/artefacts/preview/FFPE-photography-Letter.png

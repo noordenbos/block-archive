@@ -1,6 +1,6 @@
 # Security and deployment scope
 
-Block Archive currently runs on loopback for one local archive. It is not a configured institutional or network service.
+Block Archive currently runs on loopback for local projects. It is not a configured institutional or network service.
 
 ## Implemented boundaries
 
@@ -27,3 +27,9 @@ Store backups outside the Git checkout in an approved location. Restore only tru
 ## Reporting
 
 Report security problems privately to the repository maintainer. Do not include patient information, specimen identifiers, photographs, credentials or archive backups in public issues or pull requests. Use synthetic reproductions.
+
+## Combined inventory and planner
+
+Inventory metadata, labels, source photos and selection snapshots are private archive data. Planner experiments contain working tissue photographs and identifiers in browser IndexedDB, locally saved experiment files and explicit JSON exports. Save folders are configured per archive project; native folder selection runs on the computer hosting the loopback app. Live archive data stays in the configured data directory. **Save project** JSON includes both inventory data and all experiments in the current browser/project. Archive ZIP backups exclude browser scoring and slide edits; individual experiment JSON remains available. Full JSON restores use fixed database tables, validate image filenames/checksums, and create a separate project directory and browser database. Credentials are never exported. Projects separate workspaces, not users or access permissions; the same local session/token can access every local project.
+
+The planner shares the archive's loopback server, session cookie and same-origin mutation protection. Only listed planner assets are served. Its content security policy permits local data-URL images and inline styles used by the scoring canvas and reports; scripts remain same-origin only. Regex filtering runs in a terminable browser worker.

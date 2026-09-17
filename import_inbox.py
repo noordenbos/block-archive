@@ -22,7 +22,7 @@ class ImportInbox:
             );
         ''')
 
-    def import_image(self, path, actor='Folder import', label_text='', barcodes=None):
+    def import_image(self, path, actor='Folder import', label_text='', barcodes=None, filename=None):
         from archive import ArchiveError, MAX_IMAGE_BYTES, MAX_PIXELS, now, uid
         path = Path(path)
         with path.open('rb') as source_file:
@@ -59,8 +59,8 @@ class ImportInbox:
                 db.execute('''INSERT INTO import_images
                     (id,filename,sha256,imported_at,actor,label_text,barcodes,content_type,width,height)
                     VALUES(?,?,?,?,?,?,?,?,?,?)''',
-                    (image_id, path.name, digest, now(), actor, label_text, codes, content_type, width, height))
-                db.execute('INSERT INTO import_search VALUES(?,?,?,?)', (image_id, path.name, label_text, codes))
+                    (image_id, filename or path.name, digest, now(), actor, label_text, codes, content_type, width, height))
+                db.execute('INSERT INTO import_search VALUES(?,?,?,?)', (image_id, filename or path.name, label_text, codes))
         except BaseException:
             for destination in paths:
                 destination.unlink(missing_ok=True)
@@ -123,6 +123,26 @@ class ImportInbox:
                        (image_id, block_id, block['cycle'], 'reference', now(), actor, note,
                         image['sha256'], image['content_type'], image['width'], image['height']))
             db.execute('UPDATE import_images SET block_id=?,version=version+1 WHERE id=?', (block_id, image_id))
+            # Keep free-form labels when a provisional photo group becomes a block.
+            if db.execute("SELECT 1 FROM sqlite_master WHERE name='inventory_labels'").fetchone():
+                codes = sorted(set(json.loads(image['barcodes'])))
+                if db.execute("SELECT 1 FROM sqlite_master WHERE name='capture_assignments'").fetchone():
+                    assignment = db.execute('SELECT group_name FROM capture_assignments WHERE photo_id=?',(image_id,)).fetchone()
+                    if assignment:
+                        codes = [assignment['group_name']]
+                source_key = ('candidate:' + hashlib.sha256(codes[0].encode()).hexdigest()
+                              if len(codes) == 1 else 'image:' + image_id)
+                keys = (source_key, 'block:' + block_id)
+                labels = set()
+                for label_row in db.execute('SELECT labels FROM inventory_labels WHERE item_key IN (?,?)', keys):
+                    labels.update(json.loads(label_row['labels']))
+                if len(labels) > 50:
+                    raise ArchiveError(422, 'Combined photo and block labels exceed 50. Remove some labels before linking.')
+                if labels:
+                    db.execute('''INSERT INTO inventory_labels VALUES(?,?,?,?,1)
+                        ON CONFLICT(item_key) DO UPDATE SET labels=excluded.labels,actor=excluded.actor,
+                            updated_at=excluded.updated_at,version=inventory_labels.version+1''',
+                               ('block:' + block_id, json.dumps(sorted(labels)), actor, now()))
             self.event(db, block_id, 'import_confirmed', actor, {'photo_id': image_id, 'note': note})
             self.touch(db, block_id)
         return self.detail(block_id)

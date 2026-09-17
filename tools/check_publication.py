@@ -42,7 +42,9 @@ def main():
         try:
             text = path + '\n' + data.decode('utf-8')
         except UnicodeDecodeError:
-            if not history or approved.get(path) != key[1]:
+            # Bundled planner media must be byte-identical to the reviewed source assets.
+            reviewed_path = path.removeprefix('planner/')
+            if approved.get(reviewed_path) != key[1]:
                 problems.add('Unreviewed binary content')
             return
         if any(pattern.search(text) for pattern in PATTERNS):

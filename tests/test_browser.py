@@ -59,7 +59,7 @@ with tempfile.TemporaryDirectory(prefix='block-archive-browser-') as temporary:
             context=browser.new_context(viewport={'width':1440,'height':1000})
             context.route('**/*',lambda route:route.continue_() if route.request.url.startswith(origin) else route.abort())
             page=context.new_page();errors=[];page.on('pageerror',lambda error:errors.append(str(error)))
-            page.goto(origin);page.locator('#operator').fill('TEST-TECH')
+            page.goto(origin+'/archive');page.locator('#operator').fill('TEST-TECH')
             page.locator('#search').fill('TEST-2026-001234-B4');page.locator('#search').press('Enter')
             expect(page.locator('#record h2')).to_have_text('TEST-2026-001234-B4')
             page.locator('#checkout').click();expect(page.locator('#completeCut')).to_be_visible()

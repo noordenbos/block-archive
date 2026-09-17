@@ -6,18 +6,31 @@ import json
 import os
 import secrets
 import tempfile
+import base64
 from urllib.parse import urlsplit
 from uuid import UUID
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response, RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 from starlette.background import BackgroundTask
+from starlette.concurrency import run_in_threadpool
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from archive import Archive, ArchiveError, MAX_IMAGE_BYTES
-from label_pdf import pdf_bytes
+from label_pdf import pdf_bytes, parse_ids, qr_png
+import inventory
+import metadata
+import capture_review
+import projects
+import local_saves
+from previews import block_preview, experiment_image
 
 ROOT = Path(__file__).resolve().parent
+PLANNER_ASSETS = frozenset((ROOT / 'tools/planner-assets.txt').read_text().splitlines())
+
+
+class ProjectName(BaseModel):
+    name: str = Field(min_length=1, max_length=160, pattern=r"^[^\x00-\x1f]+$")
 
 
 class Input(BaseModel):
@@ -69,6 +82,77 @@ class ExternalLink(Versioned):
 class ConfirmImport(Versioned):
     block_id: UUID
     expected_block_version: int = Field(ge=1)
+
+
+class InventoryEntry(Input):
+    key: str = Field(min_length=1, max_length=100)
+    revision: str = Field(pattern=r'^[a-f0-9]{64}$')
+
+
+class InventoryLabels(Actor):
+    entries: list[InventoryEntry] = Field(min_length=1, max_length=1000)
+    labels: list[str] = Field(min_length=1, max_length=50)
+    action: Literal['add', 'remove'] = 'add'
+
+    @field_validator('labels')
+    @classmethod
+    def clean_labels(cls, values):
+        values = sorted(set(v.strip().casefold() for v in values))
+        if any(not v or len(v) > 80 or any(ord(c) < 32 for c in v) for v in values):
+            raise ValueError('Labels must be printable, nonempty and at most 80 characters.')
+        return values
+
+
+class PlanningEntry(InventoryEntry):
+    name: str = Field(min_length=1, max_length=120)
+    tissue_id: str | None = Field(default=None, min_length=1, max_length=36)
+    identifier_id: str | None = Field(default=None, max_length=36)
+    confirmed: bool
+
+
+class PlanningSelection(Actor):
+    name: str = Field(min_length=1, max_length=160)
+    entries: list[PlanningEntry] = Field(min_length=1, max_length=1000)
+
+
+class MetadataPreview(Input):
+    text: str = Field(max_length=2 * 1024 * 1024)
+    id_column: str | None = Field(default=None, max_length=80)
+
+
+class MetadataEntry(Input):
+    matching_id: str = Field(min_length=1, max_length=120)
+    fields: dict[str, str]
+    expected_version: int = Field(ge=0)
+
+    @field_validator('matching_id')
+    @classmethod
+    def printable_id(cls, value):
+        if any(ord(c) < 32 for c in value):
+            raise ValueError('Use a printable matching ID.')
+        return value
+
+
+class MetadataSave(Actor):
+    entries: list[MetadataEntry] = Field(min_length=1, max_length=10000)
+    mode: Literal['fill', 'overwrite', 'replace'] = 'fill'
+
+
+class CaptureAssignment(Input):
+    photo_id: UUID
+    group_name: str = Field(min_length=1, max_length=120)
+    role: Literal['unknown', 'tissue', 'identifier']
+
+
+class CaptureReview(Actor, InventoryEntry):
+    photos: list[CaptureAssignment] = Field(min_length=1, max_length=1000)
+    accept_qc: bool = False
+    missing_side: Literal["", "tissue", "identifier"] = ""
+
+
+class AnalyzeCapture(Actor):
+    photo_id: UUID
+    source: Literal['photos', 'imports']
 
 
 class ImportRecord(BaseModel):
@@ -184,6 +268,7 @@ class EventPage(BaseModel):
 def create_app(data_dir=None, allowed_origins=None, api_token=None):
     directory = Path(data_dir or os.environ.get('BLOCK_ARCHIVE_DATA_DIR', ROOT / '.localdata')).resolve()
     store = Archive(directory)
+    inventory.initialize(store)
     token_path = directory / 'api-token'
     if api_token is None:
         if not token_path.exists():
@@ -195,11 +280,14 @@ def create_app(data_dir=None, allowed_origins=None, api_token=None):
         raise ValueError('API token must contain at least 24 characters.')
     session = secrets.token_urlsafe(36)
     origins = set(allowed_origins or ('http://127.0.0.1:8780', 'http://localhost:8780'))
-    app = FastAPI(title='Block Archive API', version='0.1.0', docs_url=None, redoc_url=None,
+    app = FastAPI(title='Block Archive API', version='1.0.0', docs_url=None, redoc_url=None,
                   description='Year/case archive organization, post-cut image history, and block-code links. '
                               'Authenticate external clients with a bearer token. Images and events may contain identifying data.',
                   responses={401: {'model': ErrorResponse}, 409: {'model': ErrorResponse}, 422: {'description': 'Invalid input'}})
     app.state.archive = store
+    manager = projects.ProjectManager(directory, store)
+    app.state.projects = manager
+    store = projects.RequestArchive(manager)
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=[urlsplit(o).hostname for o in origins])
 
     @app.exception_handler(ArchiveError)
@@ -215,15 +303,38 @@ def create_app(data_dir=None, allowed_origins=None, api_token=None):
                 length = int(request.headers.get('content-length', '-1'))
             except ValueError:
                 length = -1
-            maximum = MAX_IMAGE_BYTES + 65536 if request.url.path.endswith('/photos') else 65536
+            maximum = (projects.MAX_PROJECT_BYTES + 65536 if request.url.path == '/api/v1/projects/import' else
+                       projects.MAX_EXPERIMENT_BYTES if request.url.path in ('/api/v1/projects/export','/api/v1/local-saves/project','/api/v1/local-saves/experiment') else
+                       MAX_IMAGE_BYTES + 65536 if request.url.path.endswith('/photos') else
+                       25 * 1024 * 1024 if request.url.path == '/api/analyze' else
+                       16 * 1024 * 1024 if request.url.path.startswith('/api/v1/metadata') else
+                       1024 * 1024 if request.url.path in ('/api/v1/inventory/labels', '/api/v1/planning-selections') else 65536)
             if length < 0:
                 return JSONResponse({'detail': 'A Content-Length header is required.'}, status_code=411)
             if length > maximum:
                 return JSONResponse({'detail': 'Request is too large.'}, status_code=413)
-        response = await call_next(request)
+        project_id = request.cookies.get('block_archive_project', 'local')
+        claimed = request.headers.get('x-archive-project')
+        token_client = secrets.compare_digest(request.headers.get('authorization', ''), 'Bearer '+api_token)
+        if token_client:
+            project_id = claimed or 'local'
+        elif request.url.path.startswith('/api/'):
+            if (claimed and claimed != project_id) or (not claimed and project_id != 'local' and request.method not in ('GET','HEAD') and request.url.path not in ('/api/labels','/api/labels.pdf','/api/analyze')):
+                return JSONResponse({'detail':'The active project changed in another tab. Reload this page before continuing.'},status_code=409)
+        try:
+            manager.directory(project_id)
+        except ArchiveError as error:
+            return JSONResponse({'detail':error.message},status_code=error.status)
+        context = projects.CURRENT_PROJECT.set(project_id)
+        try:
+            response = await call_next(request)
+        finally:
+            projects.CURRENT_PROJECT.reset(context)
         response.headers.update({'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
                                  'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY',
                                  'Content-Security-Policy': "default-src 'self'; img-src 'self' blob:; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"})
+        if request.url.path.startswith('/planner/'):
+            response.headers['Content-Security-Policy'] = "default-src 'self'; img-src 'self' data: blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
         return response
 
     bearer = HTTPBearer(auto_error=False)
@@ -247,19 +358,208 @@ def create_app(data_dir=None, allowed_origins=None, api_token=None):
 
     @app.get('/', include_in_schema=False)
     def index():
+        response = FileResponse(ROOT / 'static/inventory.html')
+        response.set_cookie('block_archive_session', session, httponly=True, samesite='strict', path='/')
+        return response
+
+    @app.get('/archive', include_in_schema=False)
+    def archive_page():
         response = FileResponse(ROOT / 'static/index.html')
         response.set_cookie('block_archive_session', session, httponly=True, samesite='strict', path='/')
         return response
 
+    @app.get('/planner', include_in_schema=False)
+    def planner_redirect():
+        return RedirectResponse('/planner/')
+
+    @app.get('/planner/{name:path}', include_in_schema=False)
+    def planner_asset(name: str):
+        name = name or 'index.html'
+        path = ROOT / 'planner' / name
+        if name not in PLANNER_ASSETS or path.resolve() != path or not path.is_file():
+            raise HTTPException(404, 'Not found.')
+        response = FileResponse(path)
+        if name == 'index.html':
+            response.set_cookie('block_archive_session', session, httponly=True, samesite='strict', path='/')
+        return response
+
     @app.get('/static/{name}', include_in_schema=False)
     def asset(name: str):
-        if name not in ('app.js', 'style.css', 'api.html', 'imports.html', 'imports.js'):
+        if name not in ('app.js', 'style.css', 'api.html', 'imports.html', 'imports.js',
+                        'inventory.js', 'inventory.css', 'inventory-filter.js', 'intake.js', 'metadata.js', 'project-workspace.js', 'project-workspace.css'):
             raise HTTPException(404, 'Not found.')
         return FileResponse(ROOT / 'static' / name)
 
+    @app.get('/api/v1/project', dependencies=protected, tags=['Projects'])
+    def current_project():
+        return manager.info(projects.CURRENT_PROJECT.get())
+
+    @app.get('/api/v1/projects', dependencies=protected, tags=['Projects'])
+    def project_list():
+        return {'items':manager.list()}
+
+    @app.post('/api/v1/projects', dependencies=protected, status_code=201, tags=['Projects'])
+    def new_project(body: ProjectName):
+        if not body.name.strip():
+            raise HTTPException(422, 'Enter a project name.')
+        return manager.create(body.name.strip())
+
+    @app.post('/api/v1/projects/{project_id}/open', dependencies=protected, tags=['Projects'])
+    def open_project(project_id: str):
+        response = JSONResponse(manager.info(project_id))
+        response.set_cookie('block_archive_project', project_id, httponly=True, samesite='strict', path='/')
+        return response
+
+    @app.get('/api/v1/projects/{project_id}/experiments', dependencies=protected, tags=['Projects'])
+    def restored_experiments(project_id: str):
+        return local_saves.experiments(manager,project_id)
+
+    @app.get('/api/v1/save-location', dependencies=protected, tags=['Projects'])
+    def save_location():
+        return local_saves.location(manager,projects.CURRENT_PROJECT.get())
+
+    @app.post('/api/v1/save-location', dependencies=protected, tags=['Projects'])
+    def set_save_location(body: dict):
+        return local_saves.configure(manager,projects.CURRENT_PROJECT.get(),body.get('folder'))
+
+    @app.post('/api/v1/save-location/browse', dependencies=protected, tags=['Projects'])
+    def browse_save_location():
+        return local_saves.browse()
+
+    @app.post('/api/v1/local-saves/{kind}', dependencies=protected, tags=['Projects'])
+    def save_locally(kind: Literal['project','experiment'], body: dict):
+        return local_saves.save(manager,projects.CURRENT_PROJECT.get(),body,kind)
+
+    @app.post('/api/v1/projects/export', dependencies=protected, tags=['Projects'])
+    def save_project(body: dict):
+        handle = tempfile.NamedTemporaryFile(prefix='project-', suffix='.json', dir=directory, delete=False)
+        path = Path(handle.name); handle.close()
+        try:
+            projects.export_project(store,manager.info(projects.CURRENT_PROJECT.get())['name'],body,path)
+        except BaseException:
+            path.unlink(missing_ok=True); raise
+        return FileResponse(path,media_type='application/json',filename='block-archive-project.json',
+                            background=BackgroundTask(path.unlink,missing_ok=True))
+
+    @app.post('/api/v1/projects/import', dependencies=protected, status_code=201, tags=['Projects'])
+    def restore_project(file: UploadFile = File()):
+        try:
+            if file.size is not None and file.size > projects.MAX_PROJECT_BYTES:
+                raise HTTPException(413,'Project exceeds the 2 GB JSON limit.')
+            try:
+                document = json.load(file.file)
+            except (ValueError, UnicodeError, RecursionError):
+                raise HTTPException(422,'Choose a valid project JSON file.')
+            return projects.import_project(manager,document)
+        finally:
+            file.file.close()
+
+    @app.get('/api/v1/inventory', dependencies=protected, tags=['Planning'])
+    def inventory_items():
+        return {'items': inventory.list_items(store)}
+
+    @app.get('/api/v1/metadata', dependencies=protected, tags=['Metadata'])
+    def metadata_records():
+        with store.connect() as db:
+            return {'records':list(metadata.records(db).values())}
+
+    @app.post('/api/v1/metadata/preview', dependencies=protected, tags=['Metadata'])
+    def preview_metadata(body: MetadataPreview):
+        return metadata.preview(store, body.text, body.id_column)
+
+    @app.post('/api/v1/metadata/columns', dependencies=protected, tags=['Metadata'])
+    def metadata_columns(body: MetadataPreview):
+        return metadata.columns(body.text)
+
+    @app.post('/api/v1/metadata', dependencies=protected, tags=['Metadata'])
+    def save_metadata(body: MetadataSave):
+        metadata.save(store, [entry.model_dump() for entry in body.entries], body.actor, body.mode)
+        return {'saved':len(body.entries)}
+
+    @app.post('/api/v1/inventory/review', dependencies=protected, tags=['Planning'])
+    def review_capture(body: CaptureReview):
+        photos = [{**p.model_dump(), 'photo_id':str(p.photo_id)} for p in body.photos]
+        return {'keys':capture_review.save_review(store,body.key,body.revision,photos,body.actor,body.accept_qc,body.missing_side)}
+
+    @app.post('/api/v1/inventory/analyze', dependencies=protected, tags=['Planning'])
+    def analyze_capture(body: AnalyzeCapture):
+        path, _ = (store.photo_path(str(body.photo_id)) if body.source == 'photos' else store.inbox_path(str(body.photo_id)))
+        from planner.vision import analyze
+        try:
+            result = analyze(path.read_bytes())
+        except Exception:
+            result = {'error':'Photo analysis failed.'}
+        capture_review.record_analysis(store,str(body.photo_id),result)
+        return {'status':'analyzed' if not result.get('error') else 'needs_review'}
+
+    @app.post('/api/v1/inventory/labels', dependencies=protected, tags=['Planning'])
+    def inventory_labels(body: InventoryLabels):
+        inventory.label_items(store, [e.model_dump() for e in body.entries], body.labels, body.action, body.actor)
+        return {'status': 'ok'}
+
+    @app.post('/api/v1/planning-selections', dependencies=protected, status_code=201, tags=['Planning'])
+    def planning_selection(body: PlanningSelection):
+        result = inventory.create_selection(store, body.name, body.actor, [e.model_dump() for e in body.entries])
+        return {'id': result['id'], 'url': '/planner/?selection=' + result['id']}
+
+    @app.get('/api/v1/planning-selections/{selection_id}', dependencies=protected, tags=['Planning'])
+    def planning_selection_detail(selection_id: UUID):
+        return inventory.get_selection(store, str(selection_id))
+
+    @app.post('/api/analyze', dependencies=protected, include_in_schema=False)
+    async def analyze_photo(request: Request):
+        from planner.vision import analyze
+        try:
+            return await run_in_threadpool(analyze, await request.body())
+        except Exception:
+            raise HTTPException(422, 'Image analysis failed. Check the format and size.')
+
+    @app.post('/api/v1/inventory/photos', dependencies=protected, status_code=201, tags=['Planning'])
+    def import_inventory_photo(file: UploadFile = File(), actor: str = Form(min_length=1, max_length=80)):
+        actor = actor.strip()
+        if not actor:
+            raise HTTPException(422, 'An operator is required.')
+        try:
+            raw = file.file.read(MAX_IMAGE_BYTES + 1)
+        finally:
+            file.file.close()
+        if not raw or len(raw) > MAX_IMAGE_BYTES:
+            raise HTTPException(413, 'Choose a photo no larger than 20 MB.')
+        filename = Path(file.filename or 'uploaded-photo').name[:255]
+        with tempfile.NamedTemporaryFile(dir=directory, suffix='.upload') as temporary:
+            temporary.write(raw); temporary.flush()
+            # Import validates image dimensions and format before running computer vision.
+            image_id, created = store.import_image(temporary.name, actor=actor, filename=filename)
+        with store.connect() as db:
+            analyzed = db.execute('SELECT 1 FROM capture_analysis WHERE photo_id=?',(image_id,)).fetchone()
+        if created or not analyzed:
+            from planner.vision import analyze
+            try:
+                result = analyze(raw)
+                codes = [code for code in result['qrValues'] if code and len(code) <= 120]
+            except Exception:
+                codes = []; result = {'error':'Photo analysis failed.'}
+            capture_review.record_analysis(store,image_id,result)
+            if codes and created:
+                with store.connect(write=True) as db:
+                    db.execute('UPDATE import_images SET barcodes=? WHERE id=?', (json.dumps(codes), image_id))
+                    db.execute('UPDATE import_search SET barcodes=? WHERE image_id=?', (json.dumps(codes), image_id))
+        return {'id': image_id, 'created': created}
+
+    @app.post('/api/labels', dependencies=protected, include_in_schema=False)
+    @app.post('/api/labels.pdf', dependencies=protected, include_in_schema=False)
+    async def planner_labels(request: Request):
+        try:
+            values = parse_ids((await request.body()).decode('utf-8-sig'))
+        except (ValueError, UnicodeError):
+            raise HTTPException(422, 'Provide a valid one-column ID list.')
+        if request.url.path.endswith('.pdf'):
+            return Response(pdf_bytes(values), media_type='application/pdf')
+        return [{'id': value, 'png': 'data:image/png;base64,' + base64.b64encode(qr_png(value)).decode()} for value in values]
+
     @app.get('/api/v1/health', tags=['Service'])
     def health():
-        return {'status': 'ok', 'version': '0.1.0'}
+        return {'status': 'ok', 'version': '1.0.0'}
 
     @app.get('/imports', include_in_schema=False)
     def imports_page():
@@ -281,6 +581,26 @@ def create_app(data_dir=None, allowed_origins=None, api_token=None):
     def import_image(image_id: UUID):
         path, mime = store.inbox_path(str(image_id))
         return FileResponse(path, media_type=mime)
+
+    @app.get('/api/v1/imports/{image_id}/experiment-image', dependencies=protected, include_in_schema=False)
+    def import_experiment_image(image_id: UUID):
+        path, _ = store.inbox_path(str(image_id))
+        return experiment_image(store,path,str(image_id))
+
+    @app.get('/api/v1/photos/{photo_id}/experiment-image', dependencies=protected, include_in_schema=False)
+    def registered_experiment_image(photo_id: UUID):
+        path, _ = store.photo_path(str(photo_id))
+        return experiment_image(store,path,str(photo_id))
+
+    @app.get('/api/v1/imports/{image_id}/block-preview', dependencies=protected, include_in_schema=False)
+    def import_block_preview(image_id: UUID):
+        path, _ = store.inbox_path(str(image_id))
+        return FileResponse(block_preview(store,path,str(image_id)),media_type='image/jpeg')
+
+    @app.get('/api/v1/photos/{photo_id}/block-preview', dependencies=protected, include_in_schema=False)
+    def registered_block_preview(photo_id: UUID):
+        path, _ = store.photo_path(str(photo_id))
+        return FileResponse(block_preview(store,path,str(photo_id)),media_type='image/jpeg')
 
     @app.get('/api/v1/imports/{image_id}/thumbnail', dependencies=protected, tags=['Imports'], response_class=FileResponse,
              responses={200: {'content': {'image/jpeg': {'schema': {'type': 'string', 'format': 'binary'}}}}})

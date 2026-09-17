@@ -1,0 +1,202 @@
+[
+  {
+    "name": "legacy-positive",
+    "analyses": [
+      {
+        "labelFeatures": 30
+      },
+      {
+        "labelFeatures": 0
+      }
+    ],
+    "identifier": 0
+  },
+  {
+    "name": "legacy-ambiguous",
+    "analyses": [
+      {
+        "labelFeatures": 9
+      },
+      {
+        "labelFeatures": 0
+      }
+    ],
+    "identifier": null
+  },
+  {
+    "name": "offset-label",
+    "analyses": [
+      {
+        "labelFeatures": 4,
+        "printingEvidence": {
+          "version": "rim-text-v2",
+          "score": 9,
+          "heightVariation": 0.1
+        }
+      },
+      {
+        "labelFeatures": 0,
+        "printingEvidence": {
+          "version": "rim-text-v2",
+          "score": 0,
+          "heightVariation": null
+        }
+      }
+    ],
+    "identifier": 0
+  },
+  {
+    "name": "reversed-order",
+    "analyses": [
+      {
+        "labelFeatures": 0,
+        "printingEvidence": {
+          "version": "rim-text-v2",
+          "score": 0,
+          "heightVariation": null
+        }
+      },
+      {
+        "labelFeatures": 4,
+        "printingEvidence": {
+          "version": "rim-text-v2",
+          "score": 9,
+          "heightVariation": 0.1
+        }
+      }
+    ],
+    "identifier": 1
+  },
+  {
+    "name": "handwriting",
+    "analyses": [
+      {
+        "labelFeatures": 4,
+        "printingEvidence": {
+          "version": "rim-text-v2",
+          "score": 5,
+          "heightVariation": 0.25
+        }
+      },
+      {
+        "labelFeatures": 6,
+        "printingEvidence": {
+          "version": "rim-text-v2",
+          "score": 0,
+          "heightVariation": null
+        }
+      }
+    ],
+    "identifier": 0
+  },
+  {
+    "name": "two-labels",
+    "analyses": [
+      {
+        "labelFeatures": 30,
+        "printingEvidence": {
+          "version": "rim-text-v2",
+          "score": 15,
+          "heightVariation": 0.15
+        }
+      },
+      {
+        "labelFeatures": 12,
+        "printingEvidence": {
+          "version": "rim-text-v2",
+          "score": 8,
+          "heightVariation": 0.15
+        }
+      }
+    ],
+    "identifier": null
+  },
+  {
+    "name": "conflicting-evidence",
+    "analyses": [
+      {
+        "labelFeatures": 30,
+        "printingEvidence": {
+          "version": "rim-text-v2",
+          "score": 0,
+          "heightVariation": null
+        }
+      },
+      {
+        "labelFeatures": 0,
+        "printingEvidence": {
+          "version": "rim-text-v2",
+          "score": 12,
+          "heightVariation": 0.1
+        }
+      }
+    ],
+    "identifier": null
+  },
+  {
+    "name": "irregular-debris",
+    "analyses": [
+      {
+        "labelFeatures": 23,
+        "printingEvidence": {
+          "version": "rim-text-v2",
+          "score": 9,
+          "heightVariation": 0.2
+        }
+      },
+      {
+        "labelFeatures": 13,
+        "printingEvidence": {
+          "version": "rim-text-v2",
+          "score": 10,
+          "heightVariation": 0.65
+        }
+      }
+    ],
+    "identifier": 0
+  },
+  {
+    "name": "weak-margin",
+    "analyses": [
+      {
+        "labelFeatures": 0,
+        "printingEvidence": {
+          "version": "rim-text-v2",
+          "score": 7,
+          "heightVariation": 0.1
+        }
+      },
+      {
+        "labelFeatures": 0,
+        "printingEvidence": {
+          "version": "rim-text-v2",
+          "score": 4,
+          "heightVariation": 0.1
+        }
+      }
+    ],
+    "identifier": null
+  },
+  {
+    "name": "no-evidence",
+    "analyses": [
+      {
+        "labelFeatures": 0,
+        "printingEvidence": {
+          "version": "rim-text-v2",
+          "score": 0,
+          "heightVariation": null
+        }
+      },
+      {
+        "labelFeatures": 0,
+        "printingEvidence": {
+          "version": "rim-text-v2",
+          "score": 0,
+          "heightVariation": null
+        }
+      }
+    ],
+    "identifier": null
+  }
+]
