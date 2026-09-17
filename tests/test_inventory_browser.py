@@ -73,9 +73,25 @@ with tempfile.TemporaryDirectory(prefix='inventory-browser-') as temporary:
             page.locator('#metadataTab').click()
             page.locator('#metadataFile').set_input_files({'name':'synthetic.csv','mimeType':'text/csv','buffer':b'ID,Material,Project\nTEST-B1,OCT,Pilot\nTEST-B2,OCT,Pilot\nFUTURE-B1,FFPE,Next'})
             expect(page.locator('#metadataPreviewSummary')).to_contain_text('2 IDs match')
+            # Reproduce slow metadata refresh after a successful import. The UI
+            # must not expose an editable stale record while this response is pending.
+            page.evaluate("""() => {
+                const original=window.fetch;
+                window.fetch=async (input,options={})=>{
+                    const response=await original(input,options);
+                    if(String(input)==='/api/v1/metadata' && !options.method)
+                        await new Promise(resolve=>setTimeout(resolve,800));
+                    return response;
+                };
+            }""")
             page.locator('#applyMetadata').click()
+            expect(page.locator('[data-edit-metadata="TEST-B1"]')).to_be_disabled()
+            expect(page.locator('#newMetadata')).to_be_disabled()
             expect(page.locator('#metadataPreview')).not_to_be_visible()
+            expect(page.locator('[data-edit-metadata="TEST-B1"]')).to_be_enabled()
             page.locator('[data-edit-metadata="TEST-B1"]').click()
+            expect(page.locator('.metadata-field-name').first).to_have_value('Material')
+            expect(page.locator('.metadata-field-value').first).to_have_value('OCT')
             page.locator('.metadata-field-value').first.fill('Frozen')
             page.locator('#saveMetadataRecord').click()
             expect(page.locator('#metadataEditor')).not_to_be_visible()

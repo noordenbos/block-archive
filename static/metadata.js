@@ -1,6 +1,6 @@
 'use strict';
 let metadataRecords = new Map(), metadataPreview = null, previewText = '', metadataEditing = null;
-let metadataLoadGeneration = 0, metadataPreviewGeneration = 0;
+let metadataLoadGeneration = 0, metadataPreviewGeneration = 0, metadataSaving = false;
 const metadataKey = value => value.trim().toLocaleLowerCase();
 function updateMetadataFilters(){
   const field=$('#metadataField').value;
@@ -27,7 +27,7 @@ function renderMetadata(){
   const records=[...merged.values()].filter(record=>[record.matching_id,...Object.entries(record.fields).flat()].join('\n').toLocaleLowerCase().includes(query)).sort((a,b)=>a.matching_id.localeCompare(b.matching_id));
   const headers=[...new Set(records.flatMap(record=>Object.keys(record.fields)))].sort();
   $('#metadataCount').textContent=`${records.length} matching IDs · ${metadataRecords.size} saved metadata records. IDs without photos are kept for future imports.`;
-  $('#metadataTable').innerHTML=records.length?`<table><thead><tr><th>Matching ID</th><th>Photos</th>${headers.map(header=>`<th>${esc(header)}</th>`).join('')}<th></th></tr></thead><tbody>${records.slice(0,250).map(record=>`<tr><th>${esc(record.matching_id)}</th><td>${[...items.values()].some(item=>metadataKey(item.name)===metadataKey(record.matching_id))?'In inventory':'Awaiting photos'}</td>${headers.map(header=>`<td>${esc(record.fields[header]||'')}</td>`).join('')}<td><button data-edit-metadata="${esc(record.matching_id)}">Edit values</button></td></tr>`).join('')}</tbody></table>${records.length>250?'<p>Showing the first 250 matches. Narrow the search to find more records.</p>':''}`:'<div class="inventory-empty"><h2>Add information in the way that suits you.</h2><p>Create a record, paste rows from a spreadsheet, or drop a CSV above.</p></div>';
+  $('#metadataTable').innerHTML=records.length?`<table><thead><tr><th>Matching ID</th><th>Photos</th>${headers.map(header=>`<th>${esc(header)}</th>`).join('')}<th></th></tr></thead><tbody>${records.slice(0,250).map(record=>`<tr><th>${esc(record.matching_id)}</th><td>${[...items.values()].some(item=>metadataKey(item.name)===metadataKey(record.matching_id))?'In inventory':'Awaiting photos'}</td>${headers.map(header=>`<td>${esc(record.fields[header]||'')}</td>`).join('')}<td><button data-edit-metadata="${esc(record.matching_id)}" ${metadataSaving?'disabled':''}>Edit values</button></td></tr>`).join('')}</tbody></table>${records.length>250?'<p>Showing the first 250 matches. Narrow the search to find more records.</p>':''}`:'<div class="inventory-empty"><h2>Add information in the way that suits you.</h2><p>Create a record, paste rows from a spreadsheet, or drop a CSV above.</p></div>';
   document.querySelectorAll('[data-edit-metadata]').forEach(button=>button.onclick=()=>openMetadataEditor(merged.get(metadataKey(button.dataset.editMetadata))));
 }
 function addMetadataField(name='',value=''){
@@ -36,6 +36,7 @@ function addMetadataField(name='',value=''){
   row.querySelector('button').onclick=()=>row.remove();$('#metadataFields').append(row);
 }
 function openMetadataEditor(record=null){
+  if(busy)return;
   metadataEditing=record;$('#metadataId').value=record?.matching_id||'';$('#metadataId').readOnly=!!record;
   $('#metadataFields').replaceChildren();$('#metadataEditError').textContent='';
   const entries=Object.entries(record?.fields||{});if(entries.length)for(const pair of entries)addMetadataField(...pair);else addMetadataField();
@@ -47,10 +48,10 @@ $('#metadataEditorForm').onsubmit=async event=>{
   event.preventDefault();if(busy)return;
   try{const operator=actor(),fields=Object.create(null),seen=new Set();
     for(const row of document.querySelectorAll('.metadata-field-row')){const name=row.querySelector('input').value.trim();if(seen.has(name.toLocaleLowerCase()))throw Error('Column names must be unique.');seen.add(name.toLocaleLowerCase());fields[name]=row.querySelector('textarea').value;}
-    busy=true;$('#saveMetadataRecord').disabled=true;
+    busy=true;metadataSaving=true;$('#saveMetadataRecord').disabled=true;$('#newMetadata').disabled=true;renderMetadata();
     await api('/api/v1/metadata',{method:'POST',body:{actor:operator,mode:'replace',entries:[{matching_id:$('#metadataId').value.trim(),fields,expected_version:metadataEditing?.version||0}]}});
-    $('#metadataEditor').close();await load();await loadMetadata();message('Metadata saved and available for inventory search and filters.');
-  }catch(error){$('#metadataEditError').textContent=error.message;}finally{busy=false;$('#saveMetadataRecord').disabled=false;selectionUI();}
+    await load();await loadMetadata();$('#metadataEditor').close();message('Metadata saved and available for inventory search and filters.');
+  }catch(error){$('#metadataEditError').textContent=error.message;}finally{busy=false;metadataSaving=false;$('#saveMetadataRecord').disabled=false;$('#newMetadata').disabled=false;renderMetadata();selectionUI();}
 };
 async function previewMetadata(column=null){
   const generation=++metadataPreviewGeneration;
@@ -77,11 +78,11 @@ $('#matchingColumn').onchange=()=>previewMetadata($('#matchingColumn').value);
 $('#cancelMetadataPreview').onclick=()=>{metadataPreview=null;++metadataPreviewGeneration;$('#metadataPreview').hidden=true;};
 $('#applyMetadata').onclick=async()=>{
   if(busy||!metadataPreview)return;
-  try{const operator=actor();busy=true;$('#applyMetadata').disabled=true;
+  try{const operator=actor();busy=true;metadataSaving=true;$('#applyMetadata').disabled=true;$('#newMetadata').disabled=true;renderMetadata();
     const entries=metadataPreview.rows.map(row=>({matching_id:row.matching_id,fields:row.fields,expected_version:row.expected_version}));
     await api('/api/v1/metadata',{method:'POST',body:{actor:operator,mode:$('#metadataMode').value,entries}});
-    metadataPreview=null;$('#metadataPreview').hidden=true;await load();await loadMetadata();message(`Saved metadata for ${entries.length} matching IDs.`);
-  }catch(error){$('#metadataError').textContent=error.message;}finally{busy=false;$('#applyMetadata').disabled=!metadataPreview;selectionUI();}
+    await load();await loadMetadata();metadataPreview=null;$('#metadataPreview').hidden=true;message(`Saved metadata for ${entries.length} matching IDs.`);
+  }catch(error){$('#metadataError').textContent=error.message;}finally{busy=false;metadataSaving=false;$('#applyMetadata').disabled=!metadataPreview;$('#newMetadata').disabled=false;renderMetadata();selectionUI();}
 };
 async function readMetadataFile(file){
   try{if(!file)return;if(file.size>2*1024*1024)throw Error('Choose a CSV or TSV file up to 2 MB.');previewText=new TextDecoder('utf-8',{fatal:true}).decode(await file.arrayBuffer());$('#metadataPaste').value=previewText;await previewMetadata();}
