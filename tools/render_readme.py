@@ -78,8 +78,26 @@ def main():
                     state=emptyExperiment('Pilot');
                     const points=[[[282,225],[338,211],[355,276],[300,290]],[[386,230],[443,214],[460,283],[403,299]]];
                     const b={id:'demo-block',name:'DEMO-B1',donor:'',photo,identifier:null,mmPerPx:65/780,calibration:null,orientation:'Label end up',notes:'Synthetic demonstration',scores:[],regions:points.map((p,i)=>({id:'piece-'+i,name:'DEMO-B1 / '+(i+1),points:p,color:['#ca9987','#a7baa3'][i]}))};
-                    state.blocks=[b];state.slides[0].placements=points.map((p,i)=>({id:'place-'+i,regionId:'piece-'+i,x:5,y:6+i*9,angle:i?25:0,mirror:false,confirmed:true,section:'Section '+(i+1)}));
-                    blockId=b.id;slideId=state.slides[0].id;selected='place-1';tab='slides';save();render();
+                    state.blocks=[b];state.slides[0].placements=points.map((p,i)=>({id:'place-'+i,regionId:'piece-'+i,x:i?6:4,y:i?16:6.5,angle:i?-4:-8,mirror:false,confirmed:true,section:'Section '+(i+1)}));
+                    // Additional demonstration blocks create a multiplexed layout.
+                    // Sizes are in millimetres; the photographed block keeps its real scale.
+                    const patches=[
+                        [2,1.8,2,1.4,8], [5,1.8,2.2,1.4,-6], [8.3,2,1.4,2,12],
+                        [8.65,6.7,.9,3,-5],
+                        [2,11.1,2,1.2,5], [5.1,11.1,2.2,1.2,-5], [8.2,11.1,1.7,1.2,3],
+                        [1.55,15.9,1.3,3.8,4],
+                        [2,20.8,2,1.1,-4], [5.1,20.8,2.1,1.1,3], [8.1,20.8,1.8,1.1,-7]
+                    ];
+                    const palette=['#bdacc7','#d7be85','#91b6be','#baa995','#afbea0'];
+                    patches.forEach(([x,y,w,h,angle],i)=>{
+                        const outline=[[0,.15*h],[.65*w,0],[w,.25*h],[.9*w,.85*h],[.35*w,h],[0,.7*h]];
+                        const region={id:'multiplex-'+i,name:'DEMO-B'+(i+2),points:outline,color:palette[i%palette.length]};
+                        state.blocks.push({id:'other-block-'+i,name:region.name,donor:'',photo:null,identifier:null,mmPerPx:1,calibration:null,orientation:'Demonstration',notes:'Illustrative tissue geometry',scores:[],regions:[region]});
+                        state.slides[0].placements.push({id:'other-place-'+i,regionId:region.id,x,y,angle,mirror:false,confirmed:true,section:'Section 1'});
+                    });
+                    blockId=b.id;slideId=state.slides[0].id;selected=null;tab='slides';save();render();
+                    const problems=issues(currentSlide()).filter(message=>/outside permitted|true polygon overlap|clearance is/.test(message));
+                    if(problems.length)throw Error(problems.join('; '));
                 }''',data_url(ROOT/'docs/assets/tissue-block.jpg'))
                 planning=folder/'planning.png';page.locator('#slideSvg').screenshot(path=str(planning))
                 page.evaluate("async () => {tab='blocks';render();await drawBlock()}")
@@ -91,7 +109,7 @@ def main():
                 for step,title,subtitle,path in cards:
                     html+=f'<section class="panel"><div class="head"><div class="step">{step}</div><h2>{title}</h2><p>{subtitle}</p></div>'
                     if step=='03':
-                        html+=f'<div class="image split"><div class="subpanel"><h3>3a · Prepare the block</h3><img src="{data_url(scoring)}"><p>Outline retained tissue.<br>Dashed edges mark scoring lines.</p></div><div class="subpanel"><h3>3b · Map to slides</h3><img src="{data_url(planning)}"><p>The same pieces,<br>placed on a recipient slide.</p></div></div>'
+                        html+=f'<div class="image split"><div class="subpanel"><h3>3a · Prepare the block</h3><img src="{data_url(scoring)}"><p>Outline retained tissue.<br>Dashed edges mark scoring lines.</p></div><div class="subpanel"><h3>3b · Multiplex tissues</h3><img src="{data_url(planning)}"><p>Pieces 1–2 from this block,<br>multiplexed with 11 other tissues.</p></div></div>'
                     else:
                         html+=f'<div class="image"><img src="{data_url(path)}"></div>'
                     html+='</section>'
