@@ -76,34 +76,19 @@ def main():
                 page.wait_for_function('() => typeof state!=="undefined" && !!state')
                 page.evaluate('''photo => {
                     state=emptyExperiment('Pilot');
-                    const points=[[[394,201],[416,202],[415,340],[388,387],[377,381],[397,337]],[[419,204],[440,214],[441,260],[427,324],[438,378],[399,418],[388,406],[419,374],[412,325],[427,259]]];
-                    const b={id:'demo-block',name:'DEMO-B1',donor:'',photo,identifier:null,mmPerPx:65/780,calibration:null,orientation:'Label end up',notes:'Synthetic demonstration',scores:[],regions:points.map((p,i)=>({id:'piece-'+i,name:'DEMO-B1 / '+(i+1),points:p,color:['#ca9987','#a7baa3'][i]}))};
-                    state.blocks=[b];state.slides[0].placements=points.map((p,i)=>({id:'place-'+i,regionId:'piece-'+i,x:i?7:2.7,y:i?11.5:10.2,angle:0,mirror:false,confirmed:true,section:'Section '+(i+1)}));
-                    // Additional demonstration blocks create a multiplexed layout.
-                    // Sizes are in millimetres; the photographed block keeps its real scale.
+                    const points=[[[390,207],[440,211],[430,394],[377,389]]];
+                    const b={id:'demo-block',name:'DEMO-B1',donor:'',photo,identifier:null,mmPerPx:.07,calibration:null,orientation:'Label end up',notes:'Illustrative scoring demonstration',scores:[],regions:points.map((p,i)=>({id:'piece-'+i,name:'DEMO-B1-R01',points:p,color:'#ca9987'}))};
+                    state.blocks=[b];state.slides[0].placements=[{id:'place-0',regionId:'piece-0',x:2.8,y:8,angle:0,mirror:false,confirmed:true,section:'Section 1'}];
+                    // Four-piece arrangement matching the supplied slide-layout example.
                     const patches=[
-                        [2,1.8,2,1.4,8], [5,1.8,2.2,1.4,-6], [8.3,2,1.4,2,12],
-                        [8.65,6.7,.9,3,-5],
-                        [2,11.1,2,1.2,5], [5.1,11.1,2.2,1.2,-5], [8.2,11.1,1.7,1.2,3],
-                        [1.55,15.9,1.3,3.8,4],
-                        [2,20.8,2,1.1,-4], [5.1,20.8,2.1,1.1,3], [8.1,20.8,1.8,1.1,-7]
+                        {points:[[0,0],[3.6,0],[3.7,14.4],[.5,14.2]],x:7.5,y:8},
+                        {points:[[.2,.2],[6.4,0],[7.3,2.8],[0,3.1]],x:4.7,y:17.25},
+                        {points:[[0,.5],[8.9,0],[8.8,1.8],[0,1.8]],x:5,y:20.6}
                     ];
-                    const palette=['#bdacc7','#d7be85','#91b6be','#baa995','#afbea0'];
-                    patches.forEach(([x,y,w,h,angle],i)=>{
-                        const outline=[[0,.15*h],[.65*w,0],[w,.25*h],[.9*w,.85*h],[.35*w,h],[0,.7*h]];
-                        const region={id:'multiplex-'+i,name:'DEMO-B'+(i+2),points:outline,color:palette[i%palette.length]};
+                    patches.forEach((patch,i)=>{
+                        const region={id:'multiplex-'+i,name:'DEMO-B'+(i+2),points:patch.points,color:'#ca9987'};
                         state.blocks.push({id:'other-block-'+i,name:region.name,donor:'',photo:null,identifier:null,mmPerPx:1,calibration:null,orientation:'Demonstration',notes:'Illustrative tissue geometry',scores:[],regions:[region]});
-                        const placement={id:'other-place-'+i,regionId:region.id,x,y,angle,mirror:false,confirmed:true,section:'Section 1'};
-                        const fits=()=>{const polygon=placed(placement);return polygon.every(([px,py])=>px>=.5&&px<=9.5&&py>=.5&&py<=21.5)&&state.slides[0].placements.every(other=>Geo.distance(polygon,placed(other))>.5)};
-                        if(!fits()){
-                            let found=false;
-                            search:for(const rotation of [angle,0,90])for(let py=1;py<=21;py+=.3)for(let px=1;px<=9;px+=.3){
-                                Object.assign(placement,{x:px,y:py,angle:rotation});
-                                if(fits()){found=true;break search}
-                            }
-                            if(!found)throw Error('Demonstration tissue does not fit');
-                        }
-                        state.slides[0].placements.push(placement);
+                        state.slides[0].placements.push({id:'other-place-'+i,regionId:region.id,x:patch.x,y:patch.y,angle:0,mirror:false,confirmed:true,section:'Section 1'});
                     });
                     blockId=b.id;slideId=state.slides[0].id;selected=null;tab='slides';save();render();
                     const problems=issues(currentSlide()).filter(message=>/outside permitted|true polygon overlap|clearance is/.test(message));
@@ -111,7 +96,8 @@ def main():
                 }''',data_url(ROOT/'docs/assets/tissue-block.jpg'))
                 planning=folder/'planning.png';page.locator('#slideSvg').screenshot(path=str(planning))
                 page.evaluate("async () => {tab='blocks';render();await drawBlock()}")
-                scoring=folder/'scoring.png';page.locator('#blockCanvas').screenshot(path=str(scoring))
+                scoring=folder/'scoring.png'
+                scoring.write_bytes(base64.b64decode(page.locator('#blockCanvas').evaluate("canvas=>canvas.toDataURL('image/png').split(',')[1]")))
                 # Compose existing setup illustration and actual UI captures in HTML.
                 setup=ROOT/'planner/artefacts/examples/phone-stand-17cm.png'
                 cards=[('01','Photograph','Mat + matching QR labels',setup),('02','Archive','Review, label and select blocks',archive),('03','Plan spatial experiments','Score tissue. Assign recipient slides.',planning)]
@@ -119,7 +105,7 @@ def main():
                 for step,title,subtitle,path in cards:
                     html+=f'<section class="panel"><div class="head"><div class="step">{step}</div><h2>{title}</h2><p>{subtitle}</p></div>'
                     if step=='03':
-                        html+=f'<div class="image split"><div class="subpanel"><h3>3a · Prepare the block</h3><img src="{data_url(scoring)}"><p>Outline retained tissue.<br>Dashed edges mark scoring lines.</p></div><div class="subpanel"><h3>3b · Multiplex tissues</h3><img src="{data_url(planning)}"><p>Pieces 1–2 from this block,<br>multiplexed with 11 other tissues.</p></div></div>'
+                        html+=f'<div class="image split"><div class="subpanel"><h3>3a · Prepare the block</h3><img src="{data_url(scoring)}"><p>Outline retained tissue.<br>Dashed edges mark scoring lines.</p></div><div class="subpanel"><h3>3b · Multiplex tissues</h3><img src="{data_url(planning)}"><p>Retained tissue from this block,<br>alongside three other pieces.</p></div></div>'
                     else:
                         html+=f'<div class="image"><img src="{data_url(path)}"></div>'
                     html+='</section>'
