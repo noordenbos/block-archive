@@ -18,7 +18,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="desktop-preview-${GITHUB_RUN_ID}"
-          gh release create "$tag" --draft --prerelease --target "$GITHUB_SHA" --title "Desktop installer preview" --notes-file packaging/PREVIEW_NOTES.md
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --draft --prerelease --target "$GITHUB_SHA" --title "Desktop installer preview" --notes-file packaging/PREVIEW_NOTES.md
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
   build:
     needs: prepare
