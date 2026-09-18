@@ -528,10 +528,13 @@ def create_app(data_dir=None, allowed_origins=None, api_token=None):
         if not raw or len(raw) > MAX_IMAGE_BYTES:
             raise HTTPException(413, 'Choose a photo no larger than 20 MB.')
         filename = Path(file.filename or 'uploaded-photo').name[:255]
-        with tempfile.NamedTemporaryFile(dir=directory, suffix='.upload') as temporary:
-            temporary.write(raw); temporary.flush()
-            # Import validates image dimensions and format before running computer vision.
+        with tempfile.NamedTemporaryFile(dir=directory, suffix='.upload', delete=False) as temporary:
+            temporary.write(raw)
+        try:
+            # Windows requires closing the temporary file before the importer opens it.
             image_id, created = store.import_image(temporary.name, actor=actor, filename=filename)
+        finally:
+            Path(temporary.name).unlink(missing_ok=True)
         with store.connect() as db:
             analyzed = db.execute('SELECT 1 FROM capture_analysis WHERE photo_id=?',(image_id,)).fetchone()
         if created or not analyzed:

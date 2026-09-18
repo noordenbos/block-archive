@@ -1,5 +1,5 @@
 """Persistent block records, image history, and transactional archive movements."""
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 import hashlib
@@ -320,7 +320,7 @@ class Archive(ImportInbox):
             # The write reservation prevents new image records while the snapshot is copied.
             temporary = self.directory / f'backup-{uid()}.sqlite3'
             try:
-                with sqlite3.connect(temporary) as target:
+                with closing(sqlite3.connect(temporary)) as target:
                     source.backup(target)
                 with zipfile.ZipFile(destination, 'w', zipfile.ZIP_DEFLATED) as archive:
                     archive.write(temporary, 'archive.sqlite3')
