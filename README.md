@@ -6,7 +6,7 @@ One local app connects a searchable block-photo archive to tissue scoring, recip
 
 ![Three-step workflow: photograph blocks on the mat, select from the archive, outline tissue for scoring and arrange those pieces on recipient slides. Demonstration records with a reviewed real tissue-side crop.](docs/assets/workflow.png)
 
-*Illustrative photo setup and actual app views. The scoring example uses a real tissue-side crop with no visible identifiers; records and layouts are for demonstration.*
+*Illustrative photo setup and actual app views. The archive and scoring examples use real tissue-side crops with no visible identifiers; records and layouts are for demonstration.*
 
 ## Quick setup
 

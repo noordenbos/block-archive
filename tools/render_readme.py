@@ -1,7 +1,7 @@
 """Render README panels in an isolated app using demonstration records.
 
 Run with requirements-dev.txt. Set SPATIAL_BROWSER_PATH for an installed Chrome.
-Only the reviewed documentation tissue crop is used; no live archive or browser profile is opened.
+Only reviewed documentation tissue crops are used; no live archive or browser profile is opened.
 """
 import base64
 import io
@@ -16,22 +16,14 @@ import time
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 import uvicorn
-from PIL import Image,ImageDraw
+from PIL import Image
 from playwright.sync_api import sync_playwright
 from block_archive.server import create_app
 from block_archive import capture_review
 from block_archive import inventory
-def synthetic_photo(index):
-    image=Image.new('RGB',(900,600),'#edf0e6')
-    draw=ImageDraw.Draw(image)
-    draw.rounded_rectangle((110,55,790,525),radius=40,fill='#bcc3b2')
-    draw.rounded_rectangle((145,90,755,485),radius=25,fill='#efdfb9')
-    palette=['#c78673','#b9a184','#be8493','#d3a066']
-    draw.ellipse((250+index*7,160,500+index*12,360),fill=palette[index])
-    draw.ellipse((400,210-index*8,620,390),fill=palette[index])
-    draw.line([(330,230),(400,280),(520,310)],fill='#9b786c',width=6)
-    draw.text((175,110),'SYNTHETIC TISSUE',fill='#5b6554')
-    data=io.BytesIO();image.save(data,'PNG');return data.getvalue()
+def documentation_photo(index):
+    name='tissue-block.jpg' if index==0 else f'tissue-block-{index+1}.jpg'
+    return (ROOT/'docs/assets'/name).read_bytes()
 
 
 def data_url(path):
@@ -43,14 +35,14 @@ def main():
         folder=Path(tmp);sock=socket.socket();sock.bind(('127.0.0.1',0));origin='http://127.0.0.1:'+str(sock.getsockname()[1])
         app=create_app(folder/'data',{origin},'synthetic-readme-only-token');store=app.state.archive
         for i in range(4):
-            block=store.create(f'DEMO-B{i+1}', 'Synthetic tissue block', 'DEMO',2026,'1','B',i+1)
-            store.add_photo(block['id'],synthetic_photo(i),'baseline','DEMO','',block['version'])
+            block=store.create(f'DEMO-B{i+1}', 'Demonstration block', 'DEMO',2026,'1','B',i+1)
+            store.add_photo(block['id'],documentation_photo(i),'baseline','DEMO','',block['version'])
         for i,item in enumerate(inventory.list_items(store)):
             photo=item['photos'][0]
             capture_review.save_review(store,item['key'],item['revision'],[{'photo_id':photo['id'],'group_name':item['name'],'role':'tissue'}],'DEMO',True,'identifier')
-            # Previews use the same synthetic fixture, never photographs from an archive.
+            # Previews use reviewed documentation assets, never a live archive.
             cache=store.directory/'preview-cache/block-zone-v1';cache.mkdir(parents=True,exist_ok=True)
-            Image.open(io.BytesIO(synthetic_photo(i))).save(cache/(photo['id']+'.jpg'))
+            Image.open(io.BytesIO(documentation_photo(i))).save(cache/(photo['id']+'.jpg'))
         for item in inventory.list_items(store):
             inventory.label_items(store,[{'key':item['key'],'revision':item['revision']}],['pilot','FFPE'],'add','DEMO')
         server=uvicorn.Server(uvicorn.Config(app,access_log=False,log_level='error'))
@@ -90,7 +82,7 @@ def main():
                         state.blocks.push({id:'other-block-'+i,name:region.name,donor:'',photo:null,identifier:null,mmPerPx:1,calibration:null,orientation:'Demonstration',notes:'Illustrative tissue geometry',scores:[],regions:[region]});
                         state.slides[0].placements.push({id:'other-place-'+i,regionId:region.id,x:patch.x,y:patch.y,angle:0,mirror:false,confirmed:true,section:'Section 1'});
                     });
-                    blockId=b.id;slideId=state.slides[0].id;selected=null;tab='slides';save();render();
+                    blockId=b.id;slideId=state.slides[0].id;selected='place-0';tab='slides';save();render();
                     const problems=issues(currentSlide()).filter(message=>/outside permitted|true polygon overlap|clearance is/.test(message));
                     if(problems.length)throw Error(problems.join('; '));
                 }''',data_url(ROOT/'docs/assets/tissue-block.jpg'))
