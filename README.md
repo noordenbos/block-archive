@@ -4,9 +4,9 @@
 
 One local app connects a searchable block-photo archive to tissue scoring, recipient-slide layouts and technician handoff.
 
-![Three-step workflow: photograph blocks on the mat, select from the archive, and arrange retained tissue on recipient slides. All shown records and images are synthetic.](docs/assets/workflow.png)
+![Three-step workflow: photograph blocks on the mat, select from the archive, outline tissue for scoring and arrange those pieces on recipient slides. Demonstration records with a reviewed real tissue-side crop.](docs/assets/workflow.png)
 
-*Illustrative photo setup and actual app views with synthetic blocks only. No patient data.*
+*Illustrative photo setup and actual app views. The scoring example uses a real tissue-side crop with no visible identifiers; records and layouts are for demonstration.*
 
 ## Quick setup
 

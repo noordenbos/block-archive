@@ -22,5 +22,6 @@ __pycache__/
 !planner/artefacts/preview/FFPE-photography-Letter-instructions.png
 !planner/artefacts/preview/FFPE-photography-Letter.png
 
-# Synthetic documentation panel, separately reviewed and hash-checked.
+# Documentation images, separately reviewed and hash-checked.
 !docs/assets/workflow.png
+!docs/assets/tissue-block.jpg

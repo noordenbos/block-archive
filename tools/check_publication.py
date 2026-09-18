@@ -28,9 +28,14 @@ def main():
     known = [v.strip().casefold() for v in args.denylist.read_text().splitlines() if v.strip()] if args.denylist else []
     manifest = set((ROOT / 'tools/public-files.txt').read_text().splitlines())
     reviewed = git('show', CLEAN_BASE + ':tools/reviewed-assets.sha256').decode().splitlines()
-    approved = {line.split('  ', 1)[1]: line.split('  ', 1)[0] for line in reviewed}
+    approved = {}
+    for line in reviewed:
+        digest, path = line.split('  ', 1)
+        approved.setdefault(path, set()).add(digest)
     docs_review = (ROOT / 'tools/reviewed-docs.sha256').read_text().splitlines()
-    approved.update({line.split('  ',1)[1]:line.split('  ',1)[0] for line in docs_review})
+    for line in docs_review:
+        digest, path = line.split('  ', 1)
+        approved.setdefault(path, set()).add(digest)
     problems = set(); inspected = set()
 
     def check(path, data, history=False):
@@ -46,7 +51,7 @@ def main():
         except UnicodeDecodeError:
             # Bundled planner media must be byte-identical to the reviewed source assets.
             reviewed_path = path.removeprefix('planner/')
-            if approved.get(reviewed_path) != key[1]:
+            if key[1] not in approved.get(reviewed_path, set()):
                 problems.add('Unreviewed binary content')
             return
         if any(pattern.search(text) for pattern in PATTERNS):

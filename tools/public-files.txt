@@ -20,6 +20,7 @@ block_archive/server.py
 block_archive/side_detection.py
 block_archive/vision.py
 docs/assets/README.md
+docs/assets/tissue-block.jpg
 docs/assets/workflow.png
 docs/wiki/API-and-development.md
 docs/wiki/Block-checkout.md
