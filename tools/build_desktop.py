@@ -58,7 +58,13 @@ def build(output, installer=True):
     platform_name = {'darwin':'macos','win32':'windows'}.get(sys.platform,'linux')
     arch = 'arm64' if platform.machine().lower() in ('arm64','aarch64') else 'x64'
     binary = output/'dist'/('Block Archive.app/Contents/MacOS/BlockArchive' if sys.platform=='darwin' else 'BlockArchive/BlockArchive'+('.exe' if sys.platform=='win32' else ''))
-    subprocess.run([str(binary), '--smoke-test'], check=True, timeout=180)
+    diagnostic = output/'startup-diagnostic.txt'
+    try:
+        subprocess.run([str(binary), '--smoke-test'], check=True, timeout=180,
+                       env=dict(os.environ, BLOCK_ARCHIVE_STARTUP_LOG=str(diagnostic)))
+    finally:
+        if diagnostic.exists():
+            print(diagnostic.read_text(encoding='utf-8'), flush=True)
     packages = output/'installers'; packages.mkdir()
     base = f'BlockArchive-{VERSION}-{platform_name}-{arch}'
     if sys.platform == 'darwin' and installer:
