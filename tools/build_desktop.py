@@ -38,8 +38,8 @@ def stage_source(stage):
             if any(part.lower() in ('licenses','license','license.txt','license.md','copying','notice') for part in file.parts):
                 path = dist.locate_file(file)
                 if path.is_file():
-                    notices.append(path.read_text(errors='replace'))
-    (stage/'THIRD_PARTY_NOTICES.txt').write_text('\n'.join(notices))
+                    notices.append(path.read_text(encoding='utf-8', errors='replace'))
+    (stage/'THIRD_PARTY_NOTICES.txt').write_text('\n'.join(notices), encoding='utf-8')
     return {name:hashlib.sha256((stage/name).read_bytes()).hexdigest() for name in files}, versions
 
 
