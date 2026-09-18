@@ -9,6 +9,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import sysconfig
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -35,10 +36,14 @@ def stage_source(stage):
         versions[name] = dist.version
         notices.append('\n'+name+' '+dist.version+'\n'+str(dist.metadata.get('License-Expression') or dist.metadata.get('License') or 'See included license text.'))
         for file in dist.files or []:
-            if any(part.lower() in ('licenses','license','license.txt','license.md','copying','notice') for part in file.parts):
+            if file.name.lower().startswith(('license', 'copying', 'notice')) or 'licenses' in [part.lower() for part in file.parts]:
                 path = dist.locate_file(file)
                 if path.is_file():
                     notices.append(path.read_text(encoding='utf-8', errors='replace'))
+    for candidate in (Path(sys.base_prefix)/'LICENSE.txt', Path(sysconfig.get_path('stdlib'))/'LICENSE.txt'):
+        if candidate.is_file():
+            notices.append('\nPython runtime license\n' + candidate.read_text(encoding='utf-8', errors='replace'))
+            break
     (stage/'THIRD_PARTY_NOTICES.txt').write_text('\n'.join(notices), encoding='utf-8')
     return {name:hashlib.sha256((stage/name).read_bytes()).hexdigest() for name in files}, versions
 
