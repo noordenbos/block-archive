@@ -76,9 +76,9 @@ def main():
                 page.wait_for_function('() => typeof state!=="undefined" && !!state')
                 page.evaluate('''photo => {
                     state=emptyExperiment('Pilot');
-                    const points=[[[282,225],[338,211],[355,276],[300,290]],[[386,230],[443,214],[460,283],[403,299]]];
+                    const points=[[[394,201],[416,202],[415,340],[388,387],[377,381],[397,337]],[[419,204],[440,214],[441,260],[427,324],[438,378],[399,418],[388,406],[419,374],[412,325],[427,259]]];
                     const b={id:'demo-block',name:'DEMO-B1',donor:'',photo,identifier:null,mmPerPx:65/780,calibration:null,orientation:'Label end up',notes:'Synthetic demonstration',scores:[],regions:points.map((p,i)=>({id:'piece-'+i,name:'DEMO-B1 / '+(i+1),points:p,color:['#ca9987','#a7baa3'][i]}))};
-                    state.blocks=[b];state.slides[0].placements=points.map((p,i)=>({id:'place-'+i,regionId:'piece-'+i,x:i?6:4,y:i?16:6.5,angle:i?-4:-8,mirror:false,confirmed:true,section:'Section '+(i+1)}));
+                    state.blocks=[b];state.slides[0].placements=points.map((p,i)=>({id:'place-'+i,regionId:'piece-'+i,x:i?7:2.7,y:i?11.5:10.2,angle:0,mirror:false,confirmed:true,section:'Section '+(i+1)}));
                     // Additional demonstration blocks create a multiplexed layout.
                     // Sizes are in millimetres; the photographed block keeps its real scale.
                     const patches=[
@@ -93,7 +93,17 @@ def main():
                         const outline=[[0,.15*h],[.65*w,0],[w,.25*h],[.9*w,.85*h],[.35*w,h],[0,.7*h]];
                         const region={id:'multiplex-'+i,name:'DEMO-B'+(i+2),points:outline,color:palette[i%palette.length]};
                         state.blocks.push({id:'other-block-'+i,name:region.name,donor:'',photo:null,identifier:null,mmPerPx:1,calibration:null,orientation:'Demonstration',notes:'Illustrative tissue geometry',scores:[],regions:[region]});
-                        state.slides[0].placements.push({id:'other-place-'+i,regionId:region.id,x,y,angle,mirror:false,confirmed:true,section:'Section 1'});
+                        const placement={id:'other-place-'+i,regionId:region.id,x,y,angle,mirror:false,confirmed:true,section:'Section 1'};
+                        const fits=()=>{const polygon=placed(placement);return polygon.every(([px,py])=>px>=.5&&px<=9.5&&py>=.5&&py<=21.5)&&state.slides[0].placements.every(other=>Geo.distance(polygon,placed(other))>.5)};
+                        if(!fits()){
+                            let found=false;
+                            search:for(const rotation of [angle,0,90])for(let py=1;py<=21;py+=.3)for(let px=1;px<=9;px+=.3){
+                                Object.assign(placement,{x:px,y:py,angle:rotation});
+                                if(fits()){found=true;break search}
+                            }
+                            if(!found)throw Error('Demonstration tissue does not fit');
+                        }
+                        state.slides[0].placements.push(placement);
                     });
                     blockId=b.id;slideId=state.slides[0].id;selected=null;tab='slides';save();render();
                     const problems=issues(currentSlide()).filter(message=>/outside permitted|true polygon overlap|clearance is/.test(message));
