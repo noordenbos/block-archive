@@ -30,6 +30,7 @@ docs/wiki/Installation.md
 docs/wiki/Photo-inventory.md
 docs/wiki/Spatial-experiments.md
 docs/wiki/Storage-and-backups.md
+planner/annotation-view.js
 planner/app.js
 planner/artefacts/FFPE-photography-A4.pdf
 planner/artefacts/FFPE-photography-Letter.pdf

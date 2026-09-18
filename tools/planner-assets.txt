@@ -1,3 +1,4 @@
+annotation-view.js
 app.js
 artefacts/FFPE-photography-A4.pdf
 artefacts/FFPE-photography-Letter.pdf
@@ -15,7 +16,7 @@ inventory-bridge.js
 labels.html
 labels.js
 placement-workflow.js
-style.css
 project-format.js
 side-detection.js
 slide-assignment.js
+style.css

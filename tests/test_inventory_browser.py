@@ -179,6 +179,35 @@ with tempfile.TemporaryDirectory(prefix='inventory-browser-') as temporary:
             assert download.value.failure() is None
             assert page.evaluate('state.blocks[0].metadata.Site') == 'North'
             page.evaluate("state.blocks[0].mmPerPx=.1;state.blocks[0].regions=[{id:'rotation-test-region',name:'Synthetic piece',points:[[0,0],[20,0],[20,10],[0,10]],color:'#d99e84'}];save()")
+            page.evaluate('render()')
+            expect(page.locator('#annotationZoom')).to_have_text('160% of fit')
+            geometry=page.evaluate('JSON.stringify(state.blocks[0].regions)')
+            page.get_by_role('button',name='Zoom out tissue photo',exact=True).click()
+            expect(page.locator('#annotationZoom')).to_have_text('128% of fit')
+            page.get_by_role('button',name='Fit whole photo',exact=True).click()
+            page.wait_for_function("() => {const c=document.querySelector('#blockCanvas'),h=c.parentElement;return c.clientWidth<=h.clientWidth+1 && c.clientHeight<=h.clientHeight+1}")
+            assert page.evaluate('JSON.stringify(state.blocks[0].regions)')==geometry
+            for _ in range(3):page.get_by_role('button',name='Zoom in tissue photo',exact=True).click()
+            page.locator('.annotation-workspace').scroll_into_view_if_needed()
+            page.evaluate("document.querySelector('.photo-area').scrollLeft=40;document.querySelector('.photo-area').scrollTop=60")
+            page.evaluate('() => new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
+            hit=page.evaluate("""() => {const c=document.querySelector('#blockCanvas'),h=c.parentElement,r=c.getBoundingClientRect(),v=h.getBoundingClientRect();const x=v.x+v.width/2,y=v.y+v.height/2;return {x,y,px:(x-r.x)*c.width/r.width,py:(y-r.y)*c.height/r.height}}""")
+            page.mouse.click(hit['x'],hit['y'])
+            point=page.evaluate('draft[0]')
+            assert abs(point[0]-hit['px'])<1 and abs(point[1]-hit['py'])<1
+            page.locator('#cancelDrawing').click()
+            assert page.evaluate('JSON.stringify(state.blocks[0].regions)')==geometry
+            bounds=page.locator('.annotation-workspace').bounding_box()
+            assert bounds['height']<750
+            viewport=page.viewport_size
+            page.set_viewport_size({'width':390,'height':844})
+            page.get_by_role('button',name='Fit whole photo',exact=True).click()
+            page.wait_for_function("() => {const c=document.querySelector('#blockCanvas'),h=c.parentElement;return c.clientWidth<=h.clientWidth+1 && c.clientHeight<=h.clientHeight+1}")
+            assert page.locator('.annotation-workspace').bounding_box()['height']<800
+            assert page.evaluate('JSON.stringify(state.blocks[0].regions)')==geometry
+            page.set_viewport_size(viewport)
+            if os.environ.get('BLOCK_ARCHIVE_SCREENSHOTS'):
+                page.locator('.annotation-workspace').screenshot(path=str(folder/'annotation-zoom.png'))
             expect(page.locator('main .experiment-actions').get_by_role('button',name='Save experiment',exact=True)).to_be_visible()
             expect(page.get_by_role('button',name='Phone → laptop')).to_have_count(0)
             expect(page.get_by_role('link',name='Download photo mats')).to_have_count(0)

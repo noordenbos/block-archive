@@ -18,7 +18,7 @@ The list order determines the next slide offered while working through blocks. R
 
 ## Score tissue and assign pieces
 
-In **Blocks & scoring**, select a block and draw polygons around the retained pieces. Each polygon edge becomes a scoring line. Check the scale and orientation before relying on dimensions.
+In **Blocks & scoring**, select a block and draw polygons around the retained pieces. Each polygon edge becomes a scoring line. Check the scale and orientation before relying on dimensions. The compact annotation window starts focused on the block. Use **− / +** to zoom out or in, **Fit whole photo** to see the complete image, or **Focus block** to return to the initial view. Scroll within the image to reach its edges. Drawing controls stay directly above the image; zoom changes only the view and preserves scoring coordinates.
 
 Use **Assign retained tissue to a slide** to find a slide by name and assign a single piece or all pieces from the block. The dropdown has two groups:
 
