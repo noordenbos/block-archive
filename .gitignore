@@ -28,3 +28,6 @@ __pycache__/
 !docs/assets/tissue-block-2.jpg
 !docs/assets/tissue-block-3.jpg
 !docs/assets/tissue-block-4.jpg
+
+# Desktop build staging and installers (never archive data).
+.build/

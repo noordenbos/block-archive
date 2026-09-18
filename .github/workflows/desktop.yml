@@ -1,0 +1,52 @@
+name: Build desktop installers
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - run: python tools/check_publication.py
+      - id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="desktop-preview-${GITHUB_RUN_ID}"
+          gh release create "$tag" --draft --prerelease --target "$GITHUB_SHA" --title "Desktop installer preview" --notes-file packaging/PREVIEW_NOTES.md
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+  build:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-15-intel, windows-2022, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements-desktop.txt pytest httpx
+      - run: python -m pytest -q tests/test_desktop.py
+      - run: python tools/build_desktop.py --output .build/desktop
+      - name: Verify Windows installed copy
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $package = Get-ChildItem .build/desktop/installers/*-setup.exe | Select-Object -First 1
+          $destination = Join-Path $env:RUNNER_TEMP 'BlockArchiveInstallTest'
+          $process = Start-Process -Wait -PassThru -FilePath $package.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',"/DIR=$destination"
+          if ($process.ExitCode -ne 0) { throw 'Installer failed' }
+          $process = Start-Process -Wait -PassThru -FilePath (Join-Path $destination 'BlockArchive.exe') -ArgumentList '--smoke-test'
+          if ($process.ExitCode -ne 0) { throw 'Installed app smoke test failed' }
+      - name: Attach tested packages to draft only
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DESKTOP_RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        run: python tools/upload_desktop_draft.py .build/desktop/installers

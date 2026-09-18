@@ -1,4 +1,5 @@
 .github/workflows/checks.yml
+.github/workflows/desktop.yml
 .gitignore
 COMMERCIAL_LICENSE.md
 LICENSE
@@ -9,6 +10,7 @@ block_archive/__init__.py
 block_archive/__main__.py
 block_archive/archive.py
 block_archive/capture_review.py
+block_archive/desktop.py
 block_archive/import_inbox.py
 block_archive/inventory.py
 block_archive/label_pdf.py
@@ -19,11 +21,15 @@ block_archive/projects.py
 block_archive/server.py
 block_archive/side_detection.py
 block_archive/vision.py
+desktop_main.py
+desktop_resources/desktop.css
+desktop_resources/desktop.js
+desktop_resources/index.html
 docs/assets/README.md
-docs/assets/tissue-block.jpg
 docs/assets/tissue-block-2.jpg
 docs/assets/tissue-block-3.jpg
 docs/assets/tissue-block-4.jpg
+docs/assets/tissue-block.jpg
 docs/assets/workflow.png
 docs/wiki/API-and-development.md
 docs/wiki/Block-checkout.md
@@ -33,6 +39,11 @@ docs/wiki/Installation.md
 docs/wiki/Photo-inventory.md
 docs/wiki/Spatial-experiments.md
 docs/wiki/Storage-and-backups.md
+packaging/PREVIEW_NOTES.md
+packaging/README.md
+packaging/desktop.spec
+packaging/entitlements.plist
+packaging/windows.iss
 planner/annotation-view.js
 planner/app.js
 planner/artefacts/FFPE-photography-A4.pdf
@@ -56,6 +67,7 @@ planner/project-format.js
 planner/side-detection.js
 planner/slide-assignment.js
 planner/style.css
+requirements-desktop.txt
 requirements-dev.txt
 requirements-export.txt
 requirements.txt
@@ -83,6 +95,7 @@ tests/side-detection.test.js
 tests/test_api.py
 tests/test_browser.py
 tests/test_capture_metadata.py
+tests/test_desktop.py
 tests/test_export.py
 tests/test_inventory.py
 tests/test_inventory_browser.py
@@ -90,6 +103,7 @@ tests/test_projects.py
 tests/test_projects_browser.py
 tests/test_side_detection.py
 tools/backup.py
+tools/build_desktop.py
 tools/check_publication.py
 tools/export_crops.py
 tools/import_folder.py
@@ -98,3 +112,4 @@ tools/public-files.txt
 tools/read_labels.swift
 tools/render_readme.py
 tools/reviewed-docs.sha256
+tools/upload_desktop_draft.py

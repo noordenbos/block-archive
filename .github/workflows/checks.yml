@@ -13,7 +13,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install -r requirements-dev.txt
-      - run: pytest -q tests/test_api.py tests/test_export.py tests/test_inventory.py tests/test_capture_metadata.py tests/test_projects.py tests/test_side_detection.py
+      - run: pytest -q tests/test_desktop.py tests/test_api.py tests/test_export.py tests/test_inventory.py tests/test_capture_metadata.py tests/test_projects.py tests/test_side_detection.py
       - run: node tests/project-format.test.js && node tests/side-detection.test.js && node tests/geometry.test.js && node tests/ingest.test.js && node tests/scoring-edit.test.js
       - run: python -m playwright install --with-deps chromium
       - run: python tests/test_browser.py

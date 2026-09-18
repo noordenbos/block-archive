@@ -375,8 +375,10 @@ def create_app(data_dir=None, allowed_origins=None, api_token=None):
     @app.get('/planner/{name:path}', include_in_schema=False)
     def planner_asset(name: str):
         name = name or 'index.html'
-        path = ROOT / 'planner' / name
-        if name not in PLANNER_ASSETS or path.resolve() != path or not path.is_file():
+        # Frozen macOS bundles use a symlink from Frameworks to Resources.
+        base = (ROOT / 'planner').resolve()
+        path = (base / name).resolve()
+        if name not in PLANNER_ASSETS or not path.is_relative_to(base) or not path.is_file():
             raise HTTPException(404, 'Not found.')
         response = FileResponse(path)
         if name == 'index.html':

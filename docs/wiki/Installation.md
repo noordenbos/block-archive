@@ -4,6 +4,10 @@
 
 Each colleague installs their own copy. Git distributes the software; it does **not** synchronize photographs, experiments or archive records.
 
+### Desktop installers
+
+Desktop installers are being tested for macOS, Windows and Linux. Until a signed, verified release is published, use the source instructions below. The public download page distinguishes available downloads from packages awaiting signing. See [desktop distribution](../../packaging/README.md) for build, storage and signing details.
+
 ### 1. Download the tool
 
 Open [the Block Archive repository](https://github.com/noordenbos/block-archive). For a private repository, the owner must first invite your GitHub account and you must accept the invitation. A “404” while signed in usually means access is missing.
